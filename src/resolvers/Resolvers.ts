@@ -1,11 +1,6 @@
 import { IResolvers } from "graphql-tools";
 import mongoose, { Schema } from "mongoose";
-import { Arg, Mutation, Resolver } from "type-graphql";
 
-var fs = require("fs");
-const { GraphQLUpload } = require("graphql-upload");
-
-const DataLoader = require("dataloader");
 export const Question = mongoose.model(
   "Question",
   new Schema({

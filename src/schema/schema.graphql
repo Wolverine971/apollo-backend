@@ -1,0 +1,43 @@
+# // schema.graphql
+
+type Query {
+  hello: String!
+  questions: [Question!]!
+}
+type Question {
+  id: String!
+  question: String!
+  authorId: String!
+  likes: [String!]
+  commentIds: [String!]
+  subscribers: [String!]
+}
+type Mutation {
+  createQuestion(
+    question: String!
+    authorId: String!
+    likes: [String!]
+    commentIds: [String!]
+    subscribers: [String!]
+  ): Question!
+}
+
+# type Comment {
+#   parentId: String!
+#   authorId: String!
+#   comment: String!
+#   likes: [String!]
+#   commentIds: [String!]
+#   subscribers: [String!]
+# }
+
+# type Mutation {
+#   addComment(
+#     parentId: String!
+#     authorId: String!
+#     comment: String!
+#     likes: [String!]
+#     commentIds: [String!]
+#     subscribers: [String!]
+#   ): Question!
+# }

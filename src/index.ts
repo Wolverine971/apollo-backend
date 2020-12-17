@@ -13,10 +13,7 @@ import mongoose from "mongoose";
 
 import { Resolvers } from "./resolvers/Resolvers";
 import { Comment } from "./resolvers/Resolvers";
-import schema from "./schema";
 import { QuestionTypes } from "./types/questionTypes";
-// import { UserTypes } from "./resolvers/userResolver";
-import { UserTypes } from "./types/userTypes";
 
 mongoose.connect("mongodb://localhost:27017/personalityApp", {
   useNewUrlParser: true,

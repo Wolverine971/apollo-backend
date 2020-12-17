@@ -1,37 +1,56 @@
 import { IResolvers } from "graphql-tools";
-import mongoose, { Schema } from "mongoose";
+import mongoose from "mongoose";
 
-export const Question = mongoose.model(
-  "Question",
-  new Schema({
-    id: String,
-    question: String,
-    authorId: String,
-    likeIds: [String],
-    commentIds: [String],
-    subscriberIds: [String],
-    dateCreated: String,
-    dateModified: String,
-  })
-);
+const Schema = mongoose.Schema;
 
-export const Comment = mongoose.model(
-  "Comment",
-  new Schema({
-    id: String,
-    parentId: String,
-    comment: String,
-    authorId: String,
-    likeIds: [String],
-    commentIds: [String],
-    dateCreated: String,
-    dateModified: String,
-  })
-);
+const questionSchema = new Schema({
+  id: String,
+  question: String,
+  authorId: String,
+  likeIds: [String],
+  commentorIds: {
+    type: Map,
+    of: String,
+  },
+  commentIds: [String],
+  subscriberIds: [String],
+  dateCreated: Date,
+  dateModified: Date,
+});
+
+questionSchema.virtual("author", {
+  ref: "User",
+  localField: "authorId",
+  foreignField: "id",
+  justOne: true,
+});
+
+export const Question = mongoose.model("Question", questionSchema);
+
+const commentSchema = new Schema({
+  id: String,
+  parentId: String,
+  comment: String,
+  authorId: String,
+  likeIds: [String],
+  commentIds: [String],
+  dateCreated: Date,
+  dateModified: Date,
+});
+
+commentSchema.virtual("author", {
+  ref: "User",
+  localField: "authorId",
+  foreignField: "id",
+  justOne: true,
+});
+
+export const Comment = mongoose.model("Comment", commentSchema);
 
 export const User = mongoose.model(
   "User",
   new Schema({
+    id: String!,
     firstName: String,
     lastName: String,
     email: String!,
@@ -39,8 +58,8 @@ export const User = mongoose.model(
     mbtiId: String,
     password: String!,
     tokenVersion: Number,
-    dateCreated: String,
-    dateModified: String,
+    dateCreated: Date,
+    dateModified: Date,
   })
 );
 
@@ -48,15 +67,21 @@ export const Content = mongoose.model(
   "Content",
   new Schema({
     id: String!,
+    enneagramType: String!,
     userId: String!,
     text: String,
     img: String,
-    dateCreated: String,
-    dateModified: String,
+    likeIds: [String],
+    commentIds: [String],
+    dateCreated: Date,
+    dateModified: Date,
   })
 );
 
 export const Resolvers: IResolvers = {
+  Date: String,
+  Map: Object,
+
   Query: {
     questions: () => Question.find(),
     comments: () => Comment.find(),
@@ -81,7 +106,7 @@ export const Resolvers: IResolvers = {
       const c = await Comment.findOne({ id: commentId });
       return c;
     },
-    getPaginatedQuestions: async (_, { pageSize, cursorId }) => {
+    getQuestions: async (_, { pageSize, cursorId }) => {
       const params = cursorId ? { id: { $gt: cursorId } } : {};
       return {
         questions: Question.find(params).limit(pageSize).exec(),
@@ -90,8 +115,12 @@ export const Resolvers: IResolvers = {
     },
 
     users: () => User.find(),
-    getUser: async (_, { email }) => {
+    getUserByEmail: async (_, { email }) => {
       const u = await User.findOne({ email });
+      return u;
+    },
+    getUserById: async (_, { id }) => {
+      const u = await User.findOne({ id });
       return u;
     },
 
@@ -100,20 +129,108 @@ export const Resolvers: IResolvers = {
       return true;
     },
 
-    content: () => Content.find(),
+    content: async (_, { enneagramType }) => Content.find({ enneagramType }),
 
     deleteContent: async () => {
       await Content.deleteMany({});
       return true;
     },
+    getComments: async (
+      _,
+      { questionId, enneagramTypes, dateRange, sortBy, cursorId }
+    ) => {
+      let date;
+
+      switch (dateRange) {
+        case "Today":
+          date = new Date(
+            new Date().getFullYear(),
+            new Date().getMonth(),
+            new Date().getDate()
+          );
+          break;
+        case "Week":
+          const backOneWeek = new Date().getDate() - 7;
+          date = new Date(
+            new Date().getFullYear(),
+            new Date().getMonth(),
+            backOneWeek
+          );
+
+          break;
+        case "Month":
+          const backOneMonth = new Date().getMonth() - 1;
+          date = new Date(
+            new Date().getFullYear(),
+            backOneMonth,
+            new Date().getDate()
+          );
+          break;
+        case "3 Months":
+          const back3Months = new Date().getMonth() - 3;
+          date = new Date(
+            new Date().getFullYear(),
+            back3Months,
+            new Date().getDate()
+          );
+          break;
+        case "Year":
+          date = new Date(
+            new Date().getFullYear() - 1,
+            new Date().getMonth(),
+            new Date().getDate()
+          );
+          break;
+        default:
+          date = new Date("new Wed Sep 09 2020 17:05:34 GMT-0500");
+      }
+      const sort =
+        sortBy === "likes"
+          ? { likeIds: -1 }
+          : sortBy === "oldest"
+          ? { dateCreated: -1 }
+          : { dateCreated: 1 };
+      const newDate = date;
+      const cursorParam = cursorId ? `id: { $gt: ${cursorId} }` : null;
+      const params = {
+        parentId: questionId,
+
+        dateCreated: {
+          $gte: newDate,
+        },
+        cursorParam,
+      };
+      const count = await Comment.estimatedDocumentCount({
+        parentId: questionId,
+        dateCreated: {
+          $gte: newDate,
+        },
+      });
+      console.log(count);
+      const comments = await Comment.find(params)
+        .limit(10)
+        .sort(sort)
+        .populate("author", "enneagramId")
+        .map((c) => {
+          const filteredComments = c.map(async (e: any) => {
+            if (enneagramTypes.includes(e.author.enneagramId)) {
+              return e;
+            } else {
+              return;
+            }
+          });
+          return Promise.all(filteredComments);
+        });
+
+      return comments.filter((x) => x);
+    },
   },
 
   Question: {
-    comments: async (root, _, ctx) => {
-      // console.log(ctx)
-      // return ctx.commentsLoader.load(root.commentIds);
+    comments: async (root, _) => {
       if (root.commentIds) {
-        return await Comment.find({ id: root.commentIds });
+        const comments = await Comment.find({ id: root.commentIds });
+        return comments;
       } else {
         return [];
       }
@@ -127,7 +244,7 @@ export const Resolvers: IResolvers = {
     },
     author: async (root) => {
       if (root.authorId) {
-        return await User.findOne({ email: root.authorId });
+        return await User.findOne({ id: root.authorId });
       } else {
         return [];
       }
@@ -136,7 +253,8 @@ export const Resolvers: IResolvers = {
   Comment: {
     comments: async (root) => {
       if (root.commentIds) {
-        return await Comment.find({ id: root.commentIds });
+        const comments = await Comment.find({ id: root.commentIds });
+        return comments;
       } else {
         return [];
       }
@@ -144,12 +262,32 @@ export const Resolvers: IResolvers = {
     likes: async (root) => {
       return root.likeIds;
     },
-    author: async (root) => {
+    author: async (root, args) => {
       if (root.authorId) {
-        return await User.findOne({ email: root.authorId });
+        if (args) {
+          return await User.findOne({
+            id: root.authorId,
+          });
+        } else {
+          return await User.findOne({ id: root.authorId });
+        }
       } else {
         return [];
       }
+    },
+  },
+
+  Content: {
+    comments: async (root) => {
+      if (root.commentIds) {
+        const comments = await Comment.find({ id: root.commentIds });
+        return comments;
+      } else {
+        return [];
+      }
+    },
+    likes: async (root) => {
+      return root.likeIds;
     },
   },
 
@@ -159,15 +297,15 @@ export const Resolvers: IResolvers = {
         id,
         question,
         authorId,
+        commentorIds: {},
         likeIds: [],
         commentIds: [],
         subscriberIds: [],
         dateCreated: new Date(),
         dateModified: new Date(),
       });
-      const res = await q.save();
+      await q.save();
 
-      console.log("save question");
       return q;
     },
 
@@ -182,17 +320,23 @@ export const Resolvers: IResolvers = {
         dateCreated: new Date(),
         dateModified: new Date(),
       });
-      const res = await c.save();
-      console.log(c);
-      console.log(parentId);
+      await c.save();
       if (type === "question") {
-        const q = await Question.updateOne(
-          { id: parentId },
-          { $push: { commentIds: [c.id] } }
-        );
+        const q: any = await Question.findOne({ id: parentId });
+        if (q) {
+          q.commentorIds.set(authorId, 1);
+          q.commentIds.push(c.id);
+          q.save();
+        }
         console.log(q);
+      } else if (type === "content") {
+        const c: any = await Content.findOne({ id: parentId });
+        if (c) {
+          c.commentIds.push(c.id);
+          c.save();
+        }
       } else {
-        const q = await Comment.updateOne(
+        await Comment.updateOne(
           { id: parentId },
           { $push: { commentIds: [c.id] } }
         );
@@ -202,12 +346,12 @@ export const Resolvers: IResolvers = {
 
     addSubscription: async (_, { userId, questionId, operation }) => {
       if (operation === "add") {
-        const q = await Question.updateOne(
+        await Question.updateOne(
           { id: questionId },
           { $push: { subscriberIds: [userId] } }
         );
       } else {
-        const q = await Question.updateOne(
+        await Question.updateOne(
           { id: questionId },
           { $pullAll: { subscriberIds: [userId] } }
         );
@@ -216,37 +360,35 @@ export const Resolvers: IResolvers = {
     },
 
     addLike: async (_, { userId, id, type, operation }) => {
-      // console.log(likes);
-      console.log(id);
-      console.log(type);
       if (type === "question") {
         if (operation === "add") {
-          const q = await Question.updateOne(
+          await Question.updateOne(
             { id: id },
             { $push: { likeIds: [userId] } }
           );
-          console.log(q);
         } else {
-          // remove
-          const q = await Question.updateOne(
+          await Question.updateOne(
             { id: id },
             { $pullAll: { likeIds: [userId] } }
           );
-          console.log(q);
+        }
+      } else if (type === "content") {
+        if (operation === "add") {
+          await Content.updateOne({ id: id }, { $push: { likeIds: [userId] } });
+        } else {
+          await Content.updateOne(
+            { id: id },
+            { $pullAll: { likeIds: [userId] } }
+          );
         }
       } else {
         if (operation === "add") {
-          const c = await Comment.updateOne(
-            { id: id },
-            { $push: { likeIds: [userId] } }
-          );
-          console.log(c);
+          await Comment.updateOne({ id: id }, { $push: { likeIds: [userId] } });
         } else {
-          const c = await Comment.updateOne(
+          await Comment.updateOne(
             { id: id },
             { $pullAll: { likeIds: [userId] } }
           );
-          console.log(c);
         }
       }
       return true;
@@ -260,20 +402,17 @@ export const Resolvers: IResolvers = {
         dateCreated: new Date(),
         dateModified: new Date(),
       });
-      const res = await u.save();
-      console.log(res);
-      console.log;
-
-      console.log("create user");
+      u.id = u._id;
+      const user = await u.save();
       return true;
     },
 
     updateUser: async (
       _,
-      { firstName, lastName, email, enneagramId, mbtiId }
+      { id, firstName, lastName, email, enneagramId, mbtiId }
     ) => {
       const u = User.findOneAndUpdate(
-        { email },
+        { id },
         {
           firstName,
           lastName,
@@ -283,10 +422,6 @@ export const Resolvers: IResolvers = {
           dateModified: new Date(),
         }
       );
-      // const res = await u.save();
-      console.log(u);
-
-      console.log("update User");
       return u;
     },
 
@@ -299,18 +434,36 @@ export const Resolvers: IResolvers = {
       return true;
     },
 
-    createContent: async (_, { id, userId, text, img }) => {
-      const c = new Content({
-        id: id,
-        userId: userId,
-        text: text,
-        img: img,
-        dateCreated: new Date(),
-        dateModified: new Date(),
-      });
-      console.log("create content");
+    createContent: async (_, { id, userId, text, img, enneagramType }) => {
+      let c;
+      if (id) {
+        c = new Content({
+          id: id,
+          enneagramType: enneagramType,
+          userId: userId,
+          text: text,
+          img: img,
+          likeIds: [],
+          commentIds: [],
+          dateCreated: new Date(),
+          dateModified: new Date(),
+        });
+      } else {
+        c = new Content({
+          userId: userId,
+          enneagramType: enneagramType,
+          text: text,
+          img: img,
+          likeIds: [],
+          commentIds: [],
+          dateCreated: new Date(),
+          dateModified: new Date(),
+        });
+        c.id = c._id;
+      }
       const res = await c.save();
-      return c;
+      const contents = await Content.find({ enneagramType });
+      return contents;
     },
   },
 };

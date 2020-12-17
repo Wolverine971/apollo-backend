@@ -1,13 +1,9 @@
 import { gql } from "apollo-server-express";
-import { GraphQLUpload } from "graphql-upload";
-
-// import { Upload } from "graphql-upload";
-
-// export const Question = mongoose.model("Question", new Schema({ question: String, authorId: String, likeIds: [String], commentIds: [String], subscriberIds: [String]}));
-
-// export const Comment = mongoose.model("Comment", new Schema({ parentId: String, comment: String, authorId: String, likeIds: [String], commentIds: [String]}));
 
 export const QuestionTypes = gql`
+  scalar Date
+  scalar Map
+
   type Query {
     hello: String!
     questions: [Question]!
@@ -17,27 +13,33 @@ export const QuestionTypes = gql`
     getDashboard(userId: String!): [Question]
     getQuestion(questionId: String!): Question
     getComment(commentId: String!): Comment
-    getPaginatedQuestions(pageSize: Int, cursorId: String!): PaginatedQuestion
-    content: [Content]
+    getQuestions(pageSize: Int, cursorId: String!): PaginatedQuestion
+    content(enneagramType: String!): [Content]
 
     users: [User]!
-    getUser(email: String!): User
+    getUserByEmail(email: String!): User
+    getUserById(id: String!): User
     deleteUsers: Boolean
     deleteContent: Boolean
+
+    getComments(
+      questionId: String!
+      enneagramTypes: [String]
+      dateRange: String
+      sortBy: String
+      cursorId: String
+    ): [Comment]
   }
   type Comment {
     id: String!
     parentId: String
-    author: User!
+    # authorId: String
+    author: User
     comment: String
     likes: [String]
     comments: [Comment]
+    dateCreated: Date
   }
-
-  # type Author {
-  #   id: String
-  #   user: String
-  # }
 
   type PaginatedQuestion {
     questions: [Question]
@@ -47,13 +49,17 @@ export const QuestionTypes = gql`
   type Question {
     id: String!
     question: String!
-    author: User!
+    author: User
+    # authorId: String
     likes: [String]
+    commentorIds: Map
     comments: [Comment]
     subscribers: [String]
+    dateCreated: Date
   }
 
   type User {
+    id: String
     firstName: String
     lastName: String
     password: String
@@ -61,17 +67,20 @@ export const QuestionTypes = gql`
     enneagramId: String
     mbtiId: String
     tokenVersion: Int
-    DateCreated: String
-    DateModified: String
+    dateCreated: Date
+    dateModified: Date
   }
 
   type Content {
     id: String!
     userId: String!
+    enneagramType: String!
     text: String
     img: String
-    DateCreated: String!
-    DateModified: String!
+    likes: [String]
+    comments: [Comment]
+    dateCreated: Date!
+    dateModified: Date!
   }
 
   type Mutation {
@@ -101,6 +110,7 @@ export const QuestionTypes = gql`
     createUser(email: String!, password: String!): Boolean!
 
     updateUser(
+      id: String!
       firstName: String
       lastName: String
       email: String
@@ -113,10 +123,11 @@ export const QuestionTypes = gql`
     deleteUser(email: String): Boolean
 
     createContent(
-      id: String!
+      id: String
       userId: String!
+      enneagramType: String!
       text: String
       img: String
-    ): Content
+    ): [Content]
   }
 `;

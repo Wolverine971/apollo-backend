@@ -2,6 +2,7 @@ import { IResolvers } from "graphql-tools";
 import mongoose from "mongoose";
 
 import { redis } from "..";
+
 const Schema = mongoose.Schema;
 
 const questionSchema = new Schema({
@@ -195,17 +196,16 @@ export const Resolvers: IResolvers = {
       const cursorParam = cursorId ? `id: { $gt: ${cursorId} }` : null;
       const params = {
         parentId: questionId,
-
         dateCreated: {
           $gte: newDate,
         },
         cursorParam,
       };
-      const count = await Comment.estimatedDocumentCount({
+      const count = await Comment.countDocuments({
         parentId: questionId,
         dateCreated: {
           $gte: newDate,
-        },
+        }
       });
       console.log(count);
       const comments = await Comment.find(params)

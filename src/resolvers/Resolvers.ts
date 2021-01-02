@@ -1,6 +1,7 @@
 import { IResolvers } from "graphql-tools";
 import mongoose from "mongoose";
 
+import { redis } from "..";
 const Schema = mongoose.Schema;
 
 const questionSchema = new Schema({
@@ -327,6 +328,17 @@ export const Resolvers: IResolvers = {
           q.commentorIds.set(authorId, 1);
           q.commentIds.push(c.id);
           q.save();
+          if (redis) {
+            const redisClient = redis.createClient();
+            redisClient.publish(
+              `push:notifications:${q.authorId}`,
+              JSON.stringify({
+                question: parentId,
+                notification: "new comment",
+                text: comment,
+              })
+            );
+          }
         }
         console.log(q);
       } else if (type === "content") {
@@ -394,10 +406,11 @@ export const Resolvers: IResolvers = {
       return true;
     },
 
-    createUser: async (_, { email, password }) => {
+    createUser: async (_, { email, password, enneagramType }) => {
       const u = new User({
         email,
         password,
+        enneagramId: enneagramType,
         tokenVersion: 0,
         dateCreated: new Date(),
         dateModified: new Date(),

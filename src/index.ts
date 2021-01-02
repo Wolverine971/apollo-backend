@@ -1,5 +1,4 @@
 import { ApolloServer } from "apollo-server-express";
-import { GraphQLRequestContext } from "apollo-server-types";
 import * as bodyParser from "body-parser";
 import compression from "compression";
 import cors from "cors";
@@ -19,6 +18,7 @@ mongoose.connect("mongodb://localhost:27017/personalityApp", {
   useNewUrlParser: true,
 });
 mongoose.set("debug", true);
+export const redis = require("redis");
 
 (async () => {
   const app = express();

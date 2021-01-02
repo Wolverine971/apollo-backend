@@ -107,7 +107,7 @@ export const QuestionTypes = gql`
       operation: String!
     ): Boolean!
 
-    createUser(email: String!, password: String!): Boolean!
+    createUser(email: String!, password: String!, enneagramType: String!): Boolean!
 
     updateUser(
       id: String!

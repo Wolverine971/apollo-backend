@@ -190,8 +190,8 @@ export const Resolvers: IResolvers = {
         sortBy === "likes"
           ? { likeIds: -1 }
           : sortBy === "oldest"
-          ? { dateCreated: -1 }
-          : { dateCreated: 1 };
+          ? { dateCreated: 1 }
+          : { dateCreated: -1 };
       const newDate = date;
       const cursorParam = cursorId ? `id: { $gt: ${cursorId} }` : null;
       const params = {
@@ -330,14 +330,41 @@ export const Resolvers: IResolvers = {
           q.save();
           if (redis) {
             const redisClient = redis.createClient();
-            redisClient.publish(
-              `push:notifications:${q.authorId}`,
-              JSON.stringify({
-                question: parentId,
-                notification: "new comment",
-                text: comment,
-              })
-            );
+            redisClient.get(`push:notifications:${q.authorId}`, (err, vals) => {
+              let newVals;
+              if (vals) {
+                const notification = JSON.stringify({
+                  question: {
+                    id: parentId,
+                    text: q.question,
+                  },
+                  notification: {
+                    id,
+                    text: comment,
+                  },
+                  time: new Date(),
+                });
+                newVals = vals.slice(0, -1);
+                newVals = `${newVals},${notification}]`;
+              } else {
+                const notification = JSON.stringify([
+                  {
+                    question: {
+                      id: parentId,
+                      text: q.question,
+                    },
+                    notification: {
+                      id,
+                      text: comment,
+                    },
+                    time: new Date(),
+                  },
+                ]);
+                newVals = notification;
+              }
+              redisClient.set(`push:notifications:${q.authorId}`, newVals);
+              redisClient.publish(`push:notifications:${q.authorId}`, newVals);
+            });
           }
         }
         console.log(q);

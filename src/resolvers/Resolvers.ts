@@ -207,7 +207,6 @@ export const Resolvers: IResolvers = {
           $gte: newDate,
         }
       });
-      console.log(count);
       const comments = await Comment.find(params)
         .limit(10)
         .sort(sort)
@@ -367,13 +366,11 @@ export const Resolvers: IResolvers = {
             });
           }
         }
-        console.log(q);
       } else if (type === "content") {
-        const c: any = await Content.findOne({ id: parentId });
-        if (c) {
-          c.commentIds.push(c.id);
-          c.save();
-        }
+        await Content.updateOne(
+          { id: parentId },
+          { $push: { comments: [c.id] } }
+        );
       } else {
         await Comment.updateOne(
           { id: parentId },

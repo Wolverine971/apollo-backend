@@ -108,10 +108,12 @@ export const Resolvers: IResolvers = {
       const c = await Comment.findOne({ id: commentId });
       return c;
     },
-    getQuestions: async (_, { pageSize, cursorId }) => {
-      const params = cursorId ? { id: { $gt: cursorId } } : {};
+    getQuestions: async (_, { pageSize, lastDate }) => {
+      const params = lastDate ? { dateCreated: { $lte: lastDate } } : {};
       return {
-        questions: Question.find(params).limit(pageSize).exec(),
+        questions: Question.find(params).limit(pageSize)
+        .sort( { dateCreated: -1 } )
+        .exec(),
         count: Question.estimatedDocumentCount(),
       };
     },
@@ -125,14 +127,11 @@ export const Resolvers: IResolvers = {
       const u = await User.findOne({ id });
       return u;
     },
-
     deleteUsers: async () => {
       await User.deleteMany({});
       return true;
     },
-
     content: async (_, { enneagramType }) => Content.find({ enneagramType }),
-
     deleteContent: async () => {
       await Content.deleteMany({});
       return true;

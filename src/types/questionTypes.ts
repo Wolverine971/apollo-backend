@@ -13,7 +13,7 @@ export const QuestionTypes = gql`
     getDashboard(userId: String!): [Question]
     getQuestion(questionId: String!): Question
     getComment(commentId: String!): Comment
-    getQuestions(pageSize: Int, cursorId: String!): PaginatedQuestion
+    getQuestions(pageSize: Int, lastDate: String!): PaginatedQuestion
     content(enneagramType: String!): [Content]
 
     users: [User]!

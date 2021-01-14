@@ -13,8 +13,9 @@ export const QuestionTypes = gql`
     getDashboard(userId: String!): [Question]
     getQuestion(questionId: String!): Question
     getComment(commentId: String!): Comment
-    getQuestions(pageSize: Int, lastDate: String!): PaginatedQuestion
-    content(enneagramType: String!): [Content]
+    getQuestions(pageSize: Int, lastDate: String!): PaginatedQuestions
+    getMoreComments(parentId: String!, lastDate: String!): PaginatedComments
+    getContent(enneagramType: String!, type: String, pageSize: Int, lastDate: String): PaginatedContent
 
     users: [User]!
     getUserByEmail(email: String!): User
@@ -22,13 +23,13 @@ export const QuestionTypes = gql`
     deleteUsers: Boolean
     deleteContent: Boolean
 
-    getComments(
+    getSortedComments(
       questionId: String!
       enneagramTypes: [String]
       dateRange: String
       sortBy: String
       cursorId: String
-    ): [Comment]
+    ): PaginatedComments
   }
   type Comment {
     id: String!
@@ -37,11 +38,11 @@ export const QuestionTypes = gql`
     author: User
     comment: String
     likes: [String]
-    comments: [Comment]
+    comments: PaginatedComments
     dateCreated: Date
   }
 
-  type PaginatedQuestion {
+  type PaginatedQuestions {
     questions: [Question]
     count: Int
   }
@@ -53,9 +54,19 @@ export const QuestionTypes = gql`
     # authorId: String
     likes: [String]
     commentorIds: Map
-    comments: [Comment]
+    comments: PaginatedComments
     subscribers: [String]
     dateCreated: Date
+  }
+
+  type PaginatedComments {
+    comments: [Comment]
+    count: Int
+  }
+
+  type PaginatedContent {
+    content: [Content]
+    count: Int
   }
 
   type User {
@@ -78,7 +89,7 @@ export const QuestionTypes = gql`
     text: String
     img: String
     likes: [String]
-    comments: [Comment]
+    comments: PaginatedComments
     dateCreated: Date!
     dateModified: Date!
   }
@@ -128,6 +139,6 @@ export const QuestionTypes = gql`
       enneagramType: String!
       text: String
       img: String
-    ): [Content]
+    ): Content!
   }
 `;

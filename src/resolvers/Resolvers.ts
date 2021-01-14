@@ -111,10 +111,25 @@ export const Resolvers: IResolvers = {
     getQuestions: async (_, { pageSize, lastDate }) => {
       const params = lastDate ? { dateCreated: { $lte: lastDate } } : {};
       return {
-        questions: Question.find(params).limit(pageSize)
-        .sort( { dateCreated: -1 } )
-        .exec(),
+        questions: Question.find(params)
+          .limit(pageSize)
+          .sort({ dateCreated: -1 })
+          .exec(),
         count: Question.estimatedDocumentCount(),
+      };
+    },
+
+    getMoreComments: async (_, { parentId, lastDate }) => {
+      const params = {
+        parentId,
+        dateCreated: { $lt: lastDate },
+      };
+      return {
+        comments: Comment.find(params)
+          .limit(10)
+          .sort({ dateCreated: -1 })
+          .exec(),
+        count: Comment.countDocuments({parentId}),
       };
     },
 
@@ -131,12 +146,25 @@ export const Resolvers: IResolvers = {
       await User.deleteMany({});
       return true;
     },
-    content: async (_, { enneagramType }) => Content.find({ enneagramType }),
+    getContent: async (_, { enneagramType, type, pageSize, lastDate }) => {
+      const params = lastDate ? { dateCreated: { $lt: lastDate }, enneagramType } : {enneagramType};
+      const content = await Content.find(params).limit(10)
+      .sort({ dateCreated: -1 })
+      .exec()
+      const count = await Content.countDocuments({
+        enneagramType
+      });
+      return {
+        content,
+        count
+      }
+    },
+      
     deleteContent: async () => {
       await Content.deleteMany({});
       return true;
     },
-    getComments: async (
+    getSortedComments: async (
       _,
       { questionId, enneagramTypes, dateRange, sortBy, cursorId }
     ) => {
@@ -200,11 +228,12 @@ export const Resolvers: IResolvers = {
         },
         cursorParam,
       };
+      // will always show total because there is additional filtering below
       const count = await Comment.countDocuments({
-        parentId: questionId,
-        dateCreated: {
-          $gte: newDate,
-        }
+        parentId: questionId
+        // dateCreated: {
+        //   $gte: newDate,
+        // }
       });
       const comments = await Comment.find(params)
         .limit(10)
@@ -221,17 +250,27 @@ export const Resolvers: IResolvers = {
           return Promise.all(filteredComments);
         });
 
-      return comments.filter((x) => x);
+      return {
+        comments: comments.filter((x) => x),
+        count,
+      };
     },
   },
 
   Question: {
     comments: async (root, _) => {
-      if (root.commentIds) {
-        const comments = await Comment.find({ id: root.commentIds });
-        return comments;
+      if (root.commentIds && root.commentIds.length) {
+        return {
+          comments: await Comment.find({ id: root.commentIds })
+            .limit(10)
+            .sort({ dateCreated: -1 }),
+          count: await Comment.countDocuments({ id: root.commentIds }),
+        };
       } else {
-        return [];
+        return {
+          comments: [],
+          count: 0,
+        };
       }
     },
     subscribers: async (root) => {
@@ -245,17 +284,26 @@ export const Resolvers: IResolvers = {
       if (root.authorId) {
         return await User.findOne({ id: root.authorId });
       } else {
-        return [];
+        return null;
       }
     },
   },
   Comment: {
     comments: async (root) => {
-      if (root.commentIds) {
-        const comments = await Comment.find({ id: root.commentIds });
-        return comments;
+      if (root.commentIds && root.commentIds.length) {
+        const comments = await Comment.find({ id: root.commentIds })
+          .limit(10)
+          .sort({ dateCreated: -1 });
+        const count = await Comment.countDocuments({ id: root.commentIds });
+        return {
+          comments,
+          count,
+        };
       } else {
-        return [];
+        return {
+          comments: [],
+          count: 0,
+        };
       }
     },
     likes: async (root) => {
@@ -278,11 +326,20 @@ export const Resolvers: IResolvers = {
 
   Content: {
     comments: async (root) => {
-      if (root.commentIds) {
-        const comments = await Comment.find({ id: root.commentIds });
-        return comments;
+      if (root.commentIds && root.commentIds.length) {
+        const comments = await Comment.find({ id: root.commentIds })
+          .limit(10)
+          .sort({ dateCreated: -1 });
+        const count = await Comment.countDocuments({ id: root.commentIds });
+        return {
+          comments,
+          count,
+        };
       } else {
-        return [];
+        return {
+          comments: [],
+          count: 0,
+        };
       }
     },
     likes: async (root) => {
@@ -368,7 +425,7 @@ export const Resolvers: IResolvers = {
       } else if (type === "content") {
         await Content.updateOne(
           { id: parentId },
-          { $push: { comments: [c.id] } }
+          { $push: { commentIds: [c.id] } }
         );
       } else {
         await Comment.updateOne(
@@ -470,7 +527,7 @@ export const Resolvers: IResolvers = {
       return true;
     },
 
-    createContent: async (_, { id, userId, text, img, enneagramType }) => {
+    createContent: async (_, { id, userId, enneagramType, text, img }) => {
       let c;
       if (id) {
         c = new Content({
@@ -497,9 +554,8 @@ export const Resolvers: IResolvers = {
         });
         c.id = c._id;
       }
-      const res = await c.save();
-      const contents = await Content.find({ enneagramType });
-      return contents;
+      await c.save();
+      return c;
     },
   },
 };

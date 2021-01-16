@@ -16,6 +16,7 @@ import { QuestionTypes } from "./types/questionTypes";
 
 mongoose.connect("mongodb://localhost:27017/personalityApp", {
   useNewUrlParser: true,
+  useUnifiedTopology: true
 });
 mongoose.set("debug", true);
 export const redis = require("redis");

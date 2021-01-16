@@ -3,6 +3,8 @@ import mongoose from "mongoose";
 
 import { redis } from "..";
 
+const crypto = require("crypto");
+
 const Schema = mongoose.Schema;
 
 const questionSchema = new Schema({
@@ -60,6 +62,8 @@ export const User = mongoose.model(
     mbtiId: String,
     password: String!,
     tokenVersion: Number,
+    resetPasswordToken: String,
+    resetPasswordExpires: Date,
     dateCreated: Date,
     dateModified: Date,
   })
@@ -129,7 +133,7 @@ export const Resolvers: IResolvers = {
           .limit(10)
           .sort({ dateCreated: -1 })
           .exec(),
-        count: Comment.countDocuments({parentId}),
+        count: Comment.countDocuments({ parentId }),
       };
     },
 
@@ -147,19 +151,22 @@ export const Resolvers: IResolvers = {
       return true;
     },
     getContent: async (_, { enneagramType, type, pageSize, lastDate }) => {
-      const params = lastDate ? { dateCreated: { $lt: lastDate }, enneagramType } : {enneagramType};
-      const content = await Content.find(params).limit(10)
-      .sort({ dateCreated: -1 })
-      .exec()
+      const params = lastDate
+        ? { dateCreated: { $lt: lastDate }, enneagramType }
+        : { enneagramType };
+      const content = await Content.find(params)
+        .limit(10)
+        .sort({ dateCreated: -1 })
+        .exec();
       const count = await Content.countDocuments({
-        enneagramType
+        enneagramType,
       });
       return {
         content,
-        count
-      }
+        count,
+      };
     },
-      
+
     deleteContent: async () => {
       await Content.deleteMany({});
       return true;
@@ -230,7 +237,7 @@ export const Resolvers: IResolvers = {
       };
       // will always show total because there is additional filtering below
       const count = await Comment.countDocuments({
-        parentId: questionId
+        parentId: questionId,
         // dateCreated: {
         //   $gte: newDate,
         // }
@@ -492,6 +499,8 @@ export const Resolvers: IResolvers = {
         password,
         enneagramId: enneagramType,
         tokenVersion: 0,
+        resetPasswordToken: null,
+        resetPasswordExpires: null,
         dateCreated: new Date(),
         dateModified: new Date(),
       });
@@ -512,6 +521,8 @@ export const Resolvers: IResolvers = {
           email,
           enneagramId,
           mbtiId,
+          resetPasswordToken: null,
+          resetPasswordExpires: null,
           dateModified: new Date(),
         }
       );
@@ -522,8 +533,51 @@ export const Resolvers: IResolvers = {
       await User.updateOne({ email }, { $inc: { tokenVersion: 1 } });
       return true;
     },
+    recover: async (_, { email }) => {
+      const u = await User.updateOne(
+        { email },
+        {
+          $inc: { tokenVersion: 1 },
+          resetPasswordToken: crypto.randomBytes(20).toString("hex"),
+          resetPasswordExpires: Date.now() + 3600000,
+        }
+      );
+      const updatedUser = await User.findOne({email})
+      if(u){
+        return updatedUser
+      } else { 
+        return null
+      }
+    },
+
+    reset: async (_, { resetPasswordToken }) => {
+      const u = await User.findOne(
+        { 
+          resetPasswordToken,
+          resetPasswordExpires: {$gt: Date.now()}
+        }
+      );
+      return u;
+    },
+    resetPassword: async (_, { password, resetPasswordToken }) => {
+      const u = await User.findOneAndUpdate(
+        {
+          resetPasswordToken,
+          resetPasswordExpires: { $gt: Date.now() },
+        },
+        {
+          password,
+        }
+      );
+      if(u){
+        return u.save()
+      } else { 
+        return null
+      }
+    },
+
     deleteUser: async (_, { email }) => {
-      const resp = await User.deleteOne({ email });
+      await User.deleteOne({ email });
       return true;
     },
 

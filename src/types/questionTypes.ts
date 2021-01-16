@@ -78,6 +78,8 @@ export const QuestionTypes = gql`
     enneagramId: String
     mbtiId: String
     tokenVersion: Int
+    resetPasswordToken: String,
+    resetPasswordExpires: Date,
     dateCreated: Date
     dateModified: Date
   }
@@ -130,6 +132,9 @@ export const QuestionTypes = gql`
     ): User!
 
     revokeRefreshTokensForUser(email: String): Boolean
+    recover(email: String): User
+    reset(resetPasswordToken: String!): User
+    resetPassword(password: String!, resetPasswordToken: String!): User
 
     deleteUser(email: String): Boolean
 

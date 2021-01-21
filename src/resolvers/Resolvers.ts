@@ -12,7 +12,7 @@ const questionSchema = new Schema({
   question: String,
   authorId: String,
   likeIds: [String],
-  commentorIds: {
+  commenterIds: {
     type: Map,
     of: String,
   },
@@ -62,6 +62,8 @@ export const User = mongoose.model(
     mbtiId: String,
     password: String!,
     tokenVersion: Number,
+    confirmedUser: Boolean,
+    confirmationToken: String,
     resetPasswordToken: String,
     resetPasswordExpires: Date,
     dateCreated: Date,
@@ -262,6 +264,31 @@ export const Resolvers: IResolvers = {
         count,
       };
     },
+
+    changeField: async () => {
+      const successQ = await Question.update(
+        {},
+        {
+          $set: { commenterIds: {} },
+        },
+        { upsert: false, multi: true }
+      )
+      const successU = await User.update(
+        {},
+        {
+          $set: { confirmedUser: true },
+        },
+        { upsert: false, multi: true }
+      )
+      if(successQ && successU){
+        return true
+      } else {
+        return false
+      }
+    },
+
+
+
   },
 
   Question: {
@@ -360,7 +387,7 @@ export const Resolvers: IResolvers = {
         id,
         question,
         authorId,
-        commentorIds: {},
+        commenterIds: {},
         likeIds: [],
         commentIds: [],
         subscriberIds: [],
@@ -387,7 +414,7 @@ export const Resolvers: IResolvers = {
       if (type === "question") {
         const q: any = await Question.findOne({ id: parentId });
         if (q) {
-          q.commentorIds.set(authorId, 1);
+          q.commenterIds.set(authorId, 1);
           q.commentIds.push(c.id);
           q.save();
           if (redis) {
@@ -499,14 +526,32 @@ export const Resolvers: IResolvers = {
         password,
         enneagramId: enneagramType,
         tokenVersion: 0,
+        confirmedUser: false,
+        confirmationToken: crypto.randomBytes(20).toString("hex"),
         resetPasswordToken: null,
         resetPasswordExpires: null,
         dateCreated: new Date(),
         dateModified: new Date(),
       });
       u.id = u._id;
-      const user = await u.save();
-      return true;
+      await u.save();
+      return u;
+    },
+
+    confirmUser: async (_, { confirmationToken }) => {
+      const u = await User.findOneAndUpdate(
+        {
+          confirmationToken,
+        },
+        {
+          confirmedUser: true,
+        }
+      );
+      if (u) {
+        return true;
+      } else {
+        return false;
+      }
     },
 
     updateUser: async (
@@ -542,21 +587,19 @@ export const Resolvers: IResolvers = {
           resetPasswordExpires: Date.now() + 3600000,
         }
       );
-      const updatedUser = await User.findOne({email})
-      if(u){
-        return updatedUser
-      } else { 
-        return null
+      const updatedUser = await User.findOne({ email });
+      if (u) {
+        return updatedUser;
+      } else {
+        return null;
       }
     },
 
     reset: async (_, { resetPasswordToken }) => {
-      const u = await User.findOne(
-        { 
-          resetPasswordToken,
-          resetPasswordExpires: {$gt: Date.now()}
-        }
-      );
+      const u = await User.findOne({
+        resetPasswordToken,
+        resetPasswordExpires: { $gt: Date.now() },
+      });
       return u;
     },
     resetPassword: async (_, { password, resetPasswordToken }) => {
@@ -569,10 +612,10 @@ export const Resolvers: IResolvers = {
           password,
         }
       );
-      if(u){
-        return u.save()
-      } else { 
-        return null
+      if (u) {
+        return u.save();
+      } else {
+        return null;
       }
     },
 

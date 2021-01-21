@@ -22,6 +22,7 @@ export const QuestionTypes = gql`
     getUserById(id: String!): User
     deleteUsers: Boolean
     deleteContent: Boolean
+    changeField: Boolean
 
     getSortedComments(
       questionId: String!
@@ -53,7 +54,7 @@ export const QuestionTypes = gql`
     author: User
     # authorId: String
     likes: [String]
-    commentorIds: Map
+    commenterIds: Map
     comments: PaginatedComments
     subscribers: [String]
     dateCreated: Date
@@ -78,6 +79,8 @@ export const QuestionTypes = gql`
     enneagramId: String
     mbtiId: String
     tokenVersion: Int
+    confirmedUser: Boolean,
+    confirmationToken: String,
     resetPasswordToken: String,
     resetPasswordExpires: Date,
     dateCreated: Date
@@ -120,7 +123,8 @@ export const QuestionTypes = gql`
       operation: String!
     ): Boolean!
 
-    createUser(email: String!, password: String!, enneagramType: String!): Boolean!
+    createUser(email: String!, password: String!, enneagramType: String!): User!
+    confirmUser(confirmationToken: String!): Boolean!
 
     updateUser(
       id: String!

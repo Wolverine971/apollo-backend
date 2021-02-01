@@ -20,6 +20,10 @@ const questionSchema = new Schema({
   subscriberIds: [String],
   dateCreated: Date,
   dateModified: Date,
+  modified: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 questionSchema.virtual("author", {
@@ -152,6 +156,11 @@ export const Resolvers: IResolvers = {
       await User.deleteMany({});
       return true;
     },
+
+    deleteUsersByEmail: async (_, { email }) => {
+      const u = await User.deleteOne({ email });
+      return true;
+    },
     getContent: async (_, { enneagramType, type, pageSize, lastDate }) => {
       const params = lastDate
         ? { dateCreated: { $lt: lastDate }, enneagramType }
@@ -250,7 +259,7 @@ export const Resolvers: IResolvers = {
         .populate("author", "enneagramId")
         .map((c) => {
           const filteredComments = c.map(async (e: any) => {
-            if (enneagramTypes.includes(e.author.enneagramId)) {
+            if (e.author && enneagramTypes.includes(e.author.enneagramId)) {
               return e;
             } else {
               return;
@@ -272,23 +281,20 @@ export const Resolvers: IResolvers = {
           $set: { commenterIds: {} },
         },
         { upsert: false, multi: true }
-      )
+      );
       const successU = await User.update(
         {},
         {
           $set: { confirmedUser: true },
         },
         { upsert: false, multi: true }
-      )
-      if(successQ && successU){
-        return true
+      );
+      if (successQ && successU) {
+        return true;
       } else {
-        return false
+        return false;
       }
     },
-
-
-
   },
 
   Question: {
@@ -653,6 +659,25 @@ export const Resolvers: IResolvers = {
       }
       await c.save();
       return c;
+    },
+
+    updateQuestion: async (_, { questionId, question }) => {
+      const q = await Question.findOneAndUpdate(
+        {
+          id: questionId,
+        },
+        {
+          question,
+          dateModified: new Date(),
+          modified: true,
+        }
+      );
+      if (q) {
+        await q.save();
+        return true;
+      } else {
+        return false;
+      }
     },
   },
 };

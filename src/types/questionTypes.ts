@@ -21,6 +21,7 @@ export const QuestionTypes = gql`
     getUserByEmail(email: String!): User
     getUserById(id: String!): User
     deleteUsers: Boolean
+    deleteUsersByEmail(email: String!): Boolean
     deleteContent: Boolean
     changeField: Boolean
 
@@ -58,6 +59,8 @@ export const QuestionTypes = gql`
     comments: PaginatedComments
     subscribers: [String]
     dateCreated: Date
+    dateModified: Date
+    modified: Boolean
   }
 
   type PaginatedComments {
@@ -149,5 +152,7 @@ export const QuestionTypes = gql`
       text: String
       img: String
     ): Content!
+
+    updateQuestion(questionId: String!, question: String): Boolean
   }
 `;

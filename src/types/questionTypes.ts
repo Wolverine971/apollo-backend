@@ -154,5 +154,6 @@ export const QuestionTypes = gql`
     ): Content!
 
     updateQuestion(questionId: String!, question: String): Boolean
+    updateComment(commentId: String!, comment: String): Boolean
   }
 `;

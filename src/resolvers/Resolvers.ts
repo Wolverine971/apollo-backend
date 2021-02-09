@@ -679,5 +679,23 @@ export const Resolvers: IResolvers = {
         return false;
       }
     },
+    updateComment: async (_, { commentId, comment }) => {
+      const c = await Comment.findOneAndUpdate(
+        {
+          id: commentId,
+        },
+        {
+          comment,
+          dateModified: new Date(),
+          modified: true,
+        }
+      );
+      if (c) {
+        await c.save();
+        return true;
+      } else {
+        return false;
+      }
+    },
   },
 };

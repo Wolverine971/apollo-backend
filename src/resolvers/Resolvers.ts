@@ -417,63 +417,74 @@ export const Resolvers: IResolvers = {
         dateModified: new Date(),
       });
       await c.save();
-      if (type === "question") {
-        const q: any = await Question.findOne({ id: parentId });
-        if (q) {
-          q.commenterIds.set(authorId, 1);
-          q.commentIds.push(c.id);
-          q.save();
-          if (redis) {
-            const redisClient = redis.createClient();
-            redisClient.get(`push:notifications:${q.authorId}`, (err, vals) => {
-              let newVals;
-              if (vals) {
-                const notification = JSON.stringify({
-                  question: {
-                    id: parentId,
-                    text: q.question,
-                  },
-                  notification: {
-                    id,
-                    text: comment,
-                  },
-                  time: new Date(),
-                });
-                newVals = vals.slice(0, -1);
-                newVals = `${newVals},${notification}]`;
-              } else {
-                const notification = JSON.stringify([
-                  {
-                    question: {
-                      id: parentId,
-                      text: q.question,
-                    },
-                    notification: {
-                      id,
-                      text: comment,
-                    },
-                    time: new Date(),
-                  },
-                ]);
-                newVals = notification;
-              }
-              redisClient.set(`push:notifications:${q.authorId}`, newVals);
-              redisClient.publish(`push:notifications:${q.authorId}`, newVals);
-            });
+      try {
+        if (type === "question") {
+          const q: any = await Question.findOne({ id: parentId });
+          if (q) {
+            q.commenterIds.set(authorId, 1);
+            q.commentIds.push(c.id);
+            q.save();
+            if (redis) {
+              const redisClient = redis.createClient();
+              redisClient.get(
+                `push:notifications:${q.authorId}`,
+                (err, vals) => {
+                  let newVals;
+                  if (vals) {
+                    const notification = JSON.stringify({
+                      question: {
+                        id: parentId,
+                        text: q.question,
+                      },
+                      notification: {
+                        id,
+                        text: comment,
+                      },
+                      time: new Date(),
+                    });
+                    newVals = vals.slice(0, -1);
+                    newVals = `${newVals},${notification}]`;
+                  } else {
+                    const notification = JSON.stringify([
+                      {
+                        question: {
+                          id: parentId,
+                          text: q.question,
+                        },
+                        notification: {
+                          id,
+                          text: comment,
+                        },
+                        time: new Date(),
+                      },
+                    ]);
+                    newVals = notification;
+                  }
+                  redisClient.set(`push:notifications:${q.authorId}`, newVals);
+                  redisClient.publish(
+                    `push:notifications:${q.authorId}`,
+                    newVals
+                  );
+                }
+              );
+            }
           }
+        } else if (type === "content") {
+          await Content.updateOne(
+            { id: parentId },
+            { $push: { commentIds: [c.id] } }
+          );
+        } else {
+          await Comment.updateOne(
+            { id: parentId },
+            { $push: { commentIds: [c.id] } }
+          );
         }
-      } else if (type === "content") {
-        await Content.updateOne(
-          { id: parentId },
-          { $push: { commentIds: [c.id] } }
-        );
-      } else {
-        await Comment.updateOne(
-          { id: parentId },
-          { $push: { commentIds: [c.id] } }
-        );
+        return c;
+      } catch (e) {
+        console.log(e);
+        return "error adding comment";
       }
-      return c;
     },
 
     addSubscription: async (_, { userId, questionId, operation }) => {

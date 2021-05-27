@@ -90,6 +90,20 @@ export const Content = mongoose.model(
   })
 );
 
+export const RelationshipData = mongoose.model(
+  "RelationshipData",
+  new Schema({
+    id: String!,
+    userId: String!,
+    relationship: [String]!,
+    text: String,
+    likeIds: [String],
+    commentIds: [String],
+    dateCreated: Date!,
+    dateModified: Date!,
+  })
+);
+
 export const Resolvers: IResolvers = {
   Date: String,
   Map: Object,
@@ -295,6 +309,17 @@ export const Resolvers: IResolvers = {
         return false;
       }
     },
+
+    getRelationshipData: async (_, { id1, id2, pageSize }) => {
+      return {
+        RelationshipData: RelationshipData.find( { relationship: { $all: [id1, id2] } } )
+          .limit(pageSize)
+          .sort({ dateCreated: -1 })
+          .exec(),
+        count: RelationshipData.estimatedDocumentCount(),
+      };
+
+    },
   },
 
   Question: {
@@ -365,6 +390,36 @@ export const Resolvers: IResolvers = {
   },
 
   Content: {
+    comments: async (root) => {
+      if (root.commentIds && root.commentIds.length) {
+        const comments = await Comment.find({ id: root.commentIds })
+          .limit(10)
+          .sort({ dateCreated: -1 });
+        const count = await Comment.countDocuments({ id: root.commentIds });
+        return {
+          comments,
+          count,
+        };
+      } else {
+        return {
+          comments: [],
+          count: 0,
+        };
+      }
+    },
+    likes: async (root) => {
+      return root.likeIds;
+    },
+  },
+
+  RelationshipData: {
+    author: async (root) => {
+      if (root.authorId) {
+        return await User.findOne({ id: root.authorId });
+      } else {
+        return null;
+      }
+    },
     comments: async (root) => {
       if (root.commentIds && root.commentIds.length) {
         const comments = await Comment.find({ id: root.commentIds })
@@ -474,6 +529,11 @@ export const Resolvers: IResolvers = {
             { id: parentId },
             { $push: { commentIds: [c.id] } }
           );
+        } else if (type === "relationship") {
+          await RelationshipData.updateOne(
+            { id: parentId },
+            { $push: { commentIds: [c.id] } }
+          );
         } else {
           await Comment.updateOne(
             { id: parentId },
@@ -483,7 +543,7 @@ export const Resolvers: IResolvers = {
         return c;
       } catch (e) {
         console.log(e);
-        return "error adding comment";
+        return e;
       }
     },
 
@@ -524,6 +584,15 @@ export const Resolvers: IResolvers = {
             { $pullAll: { likeIds: [userId] } }
           );
         }
+      } else if (type === "relationship") {
+        if (operation === "add") {
+          await RelationshipData.updateOne({ id: id }, { $push: { likeIds: [userId] } });
+        } else {
+          await RelationshipData.updateOne(
+            { id: id },
+            { $pullAll: { likeIds: [userId] } }
+          );
+        }
       } else {
         if (operation === "add") {
           await Comment.updateOne({ id: id }, { $push: { likeIds: [userId] } });
@@ -536,6 +605,94 @@ export const Resolvers: IResolvers = {
       }
       return true;
     },
+
+    createContent: async (_, { id, userId, enneagramType, text, img }) => {
+      let c;
+      if (id) {
+        c = new Content({
+          id: id,
+          enneagramType: enneagramType,
+          userId: userId,
+          text: text,
+          img: img,
+          likeIds: [],
+          commentIds: [],
+          dateCreated: new Date(),
+          dateModified: new Date(),
+        });
+      } else {
+        c = new Content({
+          userId: userId,
+          enneagramType: enneagramType,
+          text: text,
+          img: img,
+          likeIds: [],
+          commentIds: [],
+          dateCreated: new Date(),
+          dateModified: new Date(),
+        });
+        c.id = c._id;
+      }
+      await c.save();
+      return c;
+    },
+
+    updateQuestion: async (_, { questionId, question }) => {
+      const q = await Question.findOneAndUpdate(
+        {
+          id: questionId,
+        },
+        {
+          question,
+          dateModified: new Date(),
+          modified: true,
+        }
+      );
+      if (q) {
+        await q.save();
+        return true;
+      } else {
+        return false;
+      }
+    },
+    updateComment: async (_, { commentId, comment }) => {
+      const c = await Comment.findOneAndUpdate(
+        {
+          id: commentId,
+        },
+        {
+          comment,
+          dateModified: new Date(),
+          modified: true,
+        }
+      );
+      if (c) {
+        await c.save();
+        return true;
+      } else {
+        return false;
+      }
+    },
+
+    createRelationshipData: async (_, { id, userId, relationship, text }) => {
+      const r = await new RelationshipData({
+        id,
+        authorId: userId,
+        relationship,
+        text,
+        likeIds: [],
+        commentIds: [],
+        dateCreated: new Date(),
+        dateModified: new Date(),
+      })
+      if (r) {
+        return await r.save();
+      } else {
+        return false;
+      }
+    },
+
+    // ************** Auth *********************
 
     createUser: async (_, { email, password, enneagramType }) => {
       const u = new User({
@@ -641,72 +798,5 @@ export const Resolvers: IResolvers = {
       return true;
     },
 
-    createContent: async (_, { id, userId, enneagramType, text, img }) => {
-      let c;
-      if (id) {
-        c = new Content({
-          id: id,
-          enneagramType: enneagramType,
-          userId: userId,
-          text: text,
-          img: img,
-          likeIds: [],
-          commentIds: [],
-          dateCreated: new Date(),
-          dateModified: new Date(),
-        });
-      } else {
-        c = new Content({
-          userId: userId,
-          enneagramType: enneagramType,
-          text: text,
-          img: img,
-          likeIds: [],
-          commentIds: [],
-          dateCreated: new Date(),
-          dateModified: new Date(),
-        });
-        c.id = c._id;
-      }
-      await c.save();
-      return c;
-    },
-
-    updateQuestion: async (_, { questionId, question }) => {
-      const q = await Question.findOneAndUpdate(
-        {
-          id: questionId,
-        },
-        {
-          question,
-          dateModified: new Date(),
-          modified: true,
-        }
-      );
-      if (q) {
-        await q.save();
-        return true;
-      } else {
-        return false;
-      }
-    },
-    updateComment: async (_, { commentId, comment }) => {
-      const c = await Comment.findOneAndUpdate(
-        {
-          id: commentId,
-        },
-        {
-          comment,
-          dateModified: new Date(),
-          modified: true,
-        }
-      );
-      if (c) {
-        await c.save();
-        return true;
-      } else {
-        return false;
-      }
-    },
   },
 };

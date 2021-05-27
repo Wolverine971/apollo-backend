@@ -32,6 +32,8 @@ export const QuestionTypes = gql`
       sortBy: String
       cursorId: String
     ): PaginatedComments
+
+    getRelationshipData(id1: String, id2: String, pageSize: Int): RelationshipDataContent
   }
   type Comment {
     id: String!
@@ -102,6 +104,22 @@ export const QuestionTypes = gql`
     dateModified: Date!
   }
 
+  type RelationshipData {
+    id: String!
+    author: User
+    enneagramType: String!
+    text: String
+    likes: [String]
+    comments: PaginatedComments
+    dateCreated: Date!
+    dateModified: Date!
+  }
+
+  type RelationshipDataContent {
+    RelationshipData: [RelationshipData]
+    count: Int
+  }
+
   type Mutation {
     createQuestion(id: String!, question: String!, authorId: String!): Question!
 
@@ -126,6 +144,21 @@ export const QuestionTypes = gql`
       operation: String!
     ): Boolean!
 
+    createContent(
+      id: String
+      userId: String!
+      enneagramType: String!
+      text: String
+      img: String
+    ): Content!
+
+    updateQuestion(questionId: String!, question: String): Boolean
+    updateComment(commentId: String!, comment: String): Boolean
+
+    createRelationshipData(id: String, userId: String, relationship: [String], text: String): RelationshipData
+
+      # ************************** Auth ******************************
+
     createUser(email: String!, password: String!, enneagramType: String!): User!
     confirmUser(confirmationToken: String!): Boolean!
 
@@ -145,15 +178,5 @@ export const QuestionTypes = gql`
 
     deleteUser(email: String): Boolean
 
-    createContent(
-      id: String
-      userId: String!
-      enneagramType: String!
-      text: String
-      img: String
-    ): Content!
-
-    updateQuestion(questionId: String!, question: String): Boolean
-    updateComment(commentId: String!, comment: String): Boolean
   }
 `;

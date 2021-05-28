@@ -33,7 +33,7 @@ export const QuestionTypes = gql`
       cursorId: String
     ): PaginatedComments
 
-    getRelationshipData(id1: String, id2: String, pageSize: Int): RelationshipDataContent
+    getRelationshipData(id1: String, id2: String, pageSize: Int,  lastDate: String!): RelationshipDataContent
   }
   type Comment {
     id: String!
@@ -156,6 +156,7 @@ export const QuestionTypes = gql`
     updateComment(commentId: String!, comment: String): Boolean
 
     createRelationshipData(id: String, userId: String, relationship: [String], text: String): RelationshipData
+    updateThread(threadId: String!, text: String): Boolean
 
       # ************************** Auth ******************************
 

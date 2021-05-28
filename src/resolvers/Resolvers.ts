@@ -90,18 +90,27 @@ export const Content = mongoose.model(
   })
 );
 
+const RelationshipDataSchema = new Schema({
+  id: String!,
+  authorId: String!,
+  relationship: [String]!,
+  text: String,
+  likeIds: [String],
+  commentIds: [String],
+  dateCreated: Date!,
+  dateModified: Date!,
+});
+
+RelationshipDataSchema.virtual("author", {
+  ref: "User",
+  localField: "authorId",
+  foreignField: "id",
+  justOne: true,
+});
+
 export const RelationshipData = mongoose.model(
   "RelationshipData",
-  new Schema({
-    id: String!,
-    userId: String!,
-    relationship: [String]!,
-    text: String,
-    likeIds: [String],
-    commentIds: [String],
-    dateCreated: Date!,
-    dateModified: Date!,
-  })
+  RelationshipDataSchema
 );
 
 export const Resolvers: IResolvers = {
@@ -310,15 +319,19 @@ export const Resolvers: IResolvers = {
       }
     },
 
-    getRelationshipData: async (_, { id1, id2, pageSize }) => {
+    getRelationshipData: async (_, { id1, id2, pageSize, lastDate }) => {
       return {
-        RelationshipData: RelationshipData.find( { relationship: { $all: [id1, id2] } } )
+        RelationshipData: RelationshipData.find({
+          relationship: { $all: [id1, id2] },
+          dateCreated: { $lt: lastDate },
+        })
           .limit(pageSize)
           .sort({ dateCreated: -1 })
           .exec(),
-        count: RelationshipData.estimatedDocumentCount(),
+        count: RelationshipData.countDocuments({
+          relationship: { $all: [id1, id2] }
+        }),
       };
-
     },
   },
 
@@ -534,8 +547,13 @@ export const Resolvers: IResolvers = {
             { id: parentId },
             { $push: { commentIds: [c.id] } }
           );
-        } else {
+        } else if (type === "content"){
           await Comment.updateOne(
+            { id: parentId },
+            { $push: { commentIds: [c.id] } }
+          );
+        } else {
+          await RelationshipData.updateOne(
             { id: parentId },
             { $push: { commentIds: [c.id] } }
           );
@@ -586,7 +604,10 @@ export const Resolvers: IResolvers = {
         }
       } else if (type === "relationship") {
         if (operation === "add") {
-          await RelationshipData.updateOne({ id: id }, { $push: { likeIds: [userId] } });
+          await RelationshipData.updateOne(
+            { id: id },
+            { $push: { likeIds: [userId] } }
+          );
         } else {
           await RelationshipData.updateOne(
             { id: id },
@@ -684,9 +705,29 @@ export const Resolvers: IResolvers = {
         commentIds: [],
         dateCreated: new Date(),
         dateModified: new Date(),
-      })
+      });
       if (r) {
         return await r.save();
+      } else {
+        return false;
+      }
+    },
+
+
+    updateThread: async (_, { threadId, text }) => {
+      const r = await RelationshipData.findOneAndUpdate(
+        {
+          id: threadId,
+        },
+        {
+          text,
+          dateModified: new Date(),
+          modified: true,
+        }
+      );
+      if (r) {
+        await r.save();
+        return true;
       } else {
         return false;
       }
@@ -797,6 +838,5 @@ export const Resolvers: IResolvers = {
       await User.deleteOne({ email });
       return true;
     },
-
   },
 };

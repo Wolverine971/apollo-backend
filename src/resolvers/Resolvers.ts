@@ -320,14 +320,14 @@ export const Resolvers: IResolvers = {
     },
 
     getRelationshipData: async (_, { id1, id2, pageSize, lastDate }) => {
+      const params = lastDate
+        ? { dateCreated: { $lt: lastDate }, relationship: { $all: [id1, id2] } }
+        : { relationship: { $all: [id1, id2] } };
       return {
-        RelationshipData: RelationshipData.find({
-          relationship: { $all: [id1, id2] },
-          dateCreated: { $lt: lastDate },
-        })
-          .limit(pageSize)
-          .sort({ dateCreated: -1 })
-          .exec(),
+        RelationshipData: await RelationshipData.find(params)
+        .limit(pageSize)
+        .sort({ dateCreated: -1 })
+        .exec(),
         count: RelationshipData.countDocuments({
           relationship: { $all: [id1, id2] }
         }),

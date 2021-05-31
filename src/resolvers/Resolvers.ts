@@ -178,7 +178,7 @@ export const Resolvers: IResolvers = {
     },
 
     users: async (_, { cursorId, id }) => {
-      let user = await Admin.findOne({ id, role: "admin" });
+      let user = await User.findOne({ id, role: "admin" });
       if (user) {
         const cursorParam = cursorId ? `id: { $gt: ${cursorId} }` : null;
         const u = await User.find({ cursorParam }).limit(10);

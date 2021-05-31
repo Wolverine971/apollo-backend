@@ -70,6 +70,7 @@ export const User = mongoose.model(
     confirmationToken: String,
     resetPasswordToken: String,
     resetPasswordExpires: Date,
+    role: String,
     dateCreated: Date,
     dateModified: Date,
   })
@@ -100,6 +101,16 @@ const RelationshipDataSchema = new Schema({
   dateCreated: Date!,
   dateModified: Date!,
 });
+
+export const Admin = mongoose.model(
+  "Admin",
+  new Schema({
+    id: String,
+    role: String,
+    dateCreated: Date,
+    dateModified: Date,
+  })
+);
 
 RelationshipDataSchema.virtual("author", {
   ref: "User",
@@ -166,7 +177,20 @@ export const Resolvers: IResolvers = {
       };
     },
 
-    users: () => User.find(),
+    users: async (_, { cursorId, id }) => {
+      let user = await Admin.findOne({ id, role: "admin" });
+      if (user) {
+        const cursorParam = cursorId ? `id: { $gt: ${cursorId} }` : null;
+        const u = await User.find({ cursorParam }).limit(10);
+
+        return {
+          users: u,
+          count: User.estimatedDocumentCount(),
+        };
+      } else {
+        return {};
+      }
+    },
     getUserByEmail: async (_, { email }) => {
       const u = await User.findOne({ email });
       return u;
@@ -262,20 +286,28 @@ export const Resolvers: IResolvers = {
           : { dateCreated: -1 };
       const newDate = date;
       const cursorParam = cursorId ? `id: { $gt: ${cursorId} }` : null;
-      const params = {
-        parentId: questionId,
-        dateCreated: {
-          $gte: newDate,
-        },
-        cursorParam,
-      };
+      const params = questionId
+        ? {
+            parentId: questionId,
+            dateCreated: {
+              $gte: newDate,
+            },
+            cursorParam,
+          }
+        : {
+            dateCreated: {
+              $gte: newDate,
+            },
+            cursorParam,
+          };
       // will always show total because there is additional filtering below
-      const count = await Comment.countDocuments({
-        parentId: questionId,
-        // dateCreated: {
-        //   $gte: newDate,
-        // }
-      });
+      const count = await Comment.countDocuments(
+        questionId
+          ? {
+              parentId: questionId
+            }
+          : {}
+      );
       const comments = await Comment.find(params)
         .limit(10)
         .sort(sort)
@@ -325,14 +357,16 @@ export const Resolvers: IResolvers = {
         : { relationship: { $all: [id1, id2] } };
       return {
         RelationshipData: await RelationshipData.find(params)
-        .limit(pageSize)
-        .sort({ dateCreated: -1 })
-        .exec(),
+          .limit(pageSize)
+          .sort({ dateCreated: -1 })
+          .exec(),
         count: RelationshipData.countDocuments({
-          relationship: { $all: [id1, id2] }
+          relationship: { $all: [id1, id2] },
         }),
       };
     },
+
+    getAdmins: async () => await Admin.find(),
   },
 
   Question: {
@@ -547,7 +581,7 @@ export const Resolvers: IResolvers = {
             { id: parentId },
             { $push: { commentIds: [c.id] } }
           );
-        } else if (type === "content"){
+        } else if (type === "content") {
           await Comment.updateOne(
             { id: parentId },
             { $push: { commentIds: [c.id] } }
@@ -713,7 +747,6 @@ export const Resolvers: IResolvers = {
       }
     },
 
-
     updateThread: async (_, { threadId, text }) => {
       const r = await RelationshipData.findOneAndUpdate(
         {
@@ -745,6 +778,7 @@ export const Resolvers: IResolvers = {
         confirmationToken: crypto.randomBytes(20).toString("hex"),
         resetPasswordToken: null,
         resetPasswordExpires: null,
+        role: "user",
         dateCreated: new Date(),
         dateModified: new Date(),
       });
@@ -837,6 +871,64 @@ export const Resolvers: IResolvers = {
     deleteUser: async (_, { email }) => {
       await User.deleteOne({ email });
       return true;
+    },
+
+    changeUser: async (_, { id, id2, tag }) => {
+      let user = await Admin.findOne({ id, role: "admin" });
+      if (user) {
+        const u = await User.findOneAndUpdate(
+          { email: id2 },
+          { role: tag, dateModified: new Date() }
+        );
+        if (u) {
+          u.save();
+          const a = await Admin.findOne({ id: id2 });
+          if (a) {
+            const updated = await Admin.findOneAndUpdate(
+              { id: id2 },
+              { role: tag, dateModified: new Date() }
+            );
+            return true;
+          } else {
+            const created = await Admin.create({
+              id: id2,
+              role: tag,
+              dateModified: new Date(),
+              dateCreated: new Date(),
+            });
+            return true;
+          }
+        } else {
+          return false;
+        }
+      } else {
+        return false;
+      }
+    },
+
+    change: async (_, { id, type, tag }) => {
+      const user = await User.findOne({ id, role: "admin" });
+      let success;
+      if (user) {
+        if (type === "content") {
+          success = await Content.deleteOne({ id: tag });
+        } else if (type === "comment") {
+          success = await Comment.deleteOne({ id: tag });
+        } else if (type === "question") {
+          success = await Question.deleteOne({ id: tag });
+        } else if (type === "RelationshipData") {
+          success = await RelationshipData.deleteOne({ id: tag });
+        } else {
+          success = false;
+        }
+        if (success) {
+          return true;
+        } else {
+          return false;
+        }
+      } else {
+        return false;
+      }
     },
   },
 };

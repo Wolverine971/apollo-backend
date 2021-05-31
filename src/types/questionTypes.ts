@@ -17,7 +17,7 @@ export const QuestionTypes = gql`
     getMoreComments(parentId: String!, lastDate: String!): PaginatedComments
     getContent(enneagramType: String!, type: String, pageSize: Int, lastDate: String): PaginatedContent
 
-    users: [User]!
+    users(cursorId: String, id: String!): PaginatedUsers
     getUserByEmail(email: String!): User
     getUserById(id: String!): User
     deleteUsers: Boolean
@@ -26,7 +26,7 @@ export const QuestionTypes = gql`
     changeField: Boolean
 
     getSortedComments(
-      questionId: String!
+      questionId: String
       enneagramTypes: [String]
       dateRange: String
       sortBy: String
@@ -34,6 +34,12 @@ export const QuestionTypes = gql`
     ): PaginatedComments
 
     getRelationshipData(id1: String, id2: String, pageSize: Int,  lastDate: String!): RelationshipDataContent
+    getAdmins: [Admin]
+  }
+
+  type PaginatedUsers {
+    users: [User]
+    count: Int
   }
   type Comment {
     id: String!
@@ -88,8 +94,16 @@ export const QuestionTypes = gql`
     confirmationToken: String,
     resetPasswordToken: String,
     resetPasswordExpires: Date,
+    role: String,
     dateCreated: Date
     dateModified: Date
+  }
+
+  type Admin {
+    id: String,
+    role: String,
+    dateCreated: Date,
+    dateModified: Date,
   }
 
   type Content {
@@ -178,6 +192,8 @@ export const QuestionTypes = gql`
     resetPassword(password: String!, resetPasswordToken: String!): User
 
     deleteUser(email: String): Boolean
+    changeUser(id: String!, id2: String!, tag: String!): Boolean
+    change(id: String!, type: String!, tag: String!): Boolean
 
   }
 `;

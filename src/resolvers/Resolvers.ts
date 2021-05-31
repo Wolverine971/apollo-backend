@@ -919,6 +919,8 @@ export const Resolvers: IResolvers = {
           success = await Question.deleteOne({ id: tag });
         } else if (type === "RelationshipData") {
           success = await RelationshipData.deleteOne({ id: tag });
+        } else if (type === "user") {
+          success = await User.deleteOne({ id: tag });
         } else {
           success = false;
         }

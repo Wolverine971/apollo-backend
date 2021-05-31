@@ -890,12 +890,13 @@ export const Resolvers: IResolvers = {
             );
             return true;
           } else {
-            const created = await Admin.create({
+            const admin = new Admin({
               id: id2,
               role: tag,
               dateModified: new Date(),
               dateCreated: new Date(),
             });
+            await admin.save()
             return true;
           }
         } else {

@@ -1,9 +1,11 @@
+import { gql } from "apollo-server-express";
 import { IResolvers } from "graphql-tools";
 import mongoose from "mongoose";
 
 import { redis } from "..";
-
-const crypto = require("crypto");
+import { Content } from "./content";
+import { RelationshipData } from "./relationship";
+import { User } from "./users";
 
 const Schema = mongoose.Schema;
 
@@ -55,76 +57,7 @@ commentSchema.virtual("author", {
 
 export const Comment = mongoose.model("Comment", commentSchema);
 
-export const User = mongoose.model(
-  "User",
-  new Schema({
-    id: String!,
-    firstName: String,
-    lastName: String,
-    email: String!,
-    enneagramId: String,
-    mbtiId: String,
-    password: String!,
-    tokenVersion: Number,
-    confirmedUser: Boolean,
-    confirmationToken: String,
-    resetPasswordToken: String,
-    resetPasswordExpires: Date,
-    role: String,
-    dateCreated: Date,
-    dateModified: Date,
-  })
-);
-
-export const Content = mongoose.model(
-  "Content",
-  new Schema({
-    id: String!,
-    enneagramType: String!,
-    userId: String!,
-    text: String,
-    img: String,
-    likeIds: [String],
-    commentIds: [String],
-    dateCreated: Date,
-    dateModified: Date,
-  })
-);
-
-const RelationshipDataSchema = new Schema({
-  id: String!,
-  authorId: String!,
-  relationship: [String]!,
-  text: String,
-  likeIds: [String],
-  commentIds: [String],
-  dateCreated: Date!,
-  dateModified: Date!,
-});
-
-export const Admin = mongoose.model(
-  "Admin",
-  new Schema({
-    id: String,
-    role: String,
-    dateCreated: Date,
-    dateModified: Date,
-  })
-);
-
-RelationshipDataSchema.virtual("author", {
-  ref: "User",
-  localField: "authorId",
-  foreignField: "id",
-  justOne: true,
-});
-
-export const RelationshipData = mongoose.model(
-  "RelationshipData",
-  RelationshipDataSchema
-);
-
-export const Resolvers: IResolvers = {
+export const QandAResolvers: IResolvers = {
   Date: String,
   Map: Object,
 
@@ -175,59 +108,6 @@ export const Resolvers: IResolvers = {
           .exec(),
         count: Comment.countDocuments({ parentId }),
       };
-    },
-
-    users: async (_, { cursorId, id }) => {
-      let user = await User.findOne({ id, role: "admin" });
-      if (user) {
-        const cursorParam = cursorId ? `id: { $gt: ${cursorId} }` : null;
-        const u = await User.find({ cursorParam }).limit(10);
-
-        return {
-          users: u,
-          count: User.estimatedDocumentCount(),
-        };
-      } else {
-        return {};
-      }
-    },
-    getUserByEmail: async (_, { email }) => {
-      const u = await User.findOne({ email });
-      return u;
-    },
-    getUserById: async (_, { id }) => {
-      const u = await User.findOne({ id });
-      return u;
-    },
-    deleteUsers: async () => {
-      await User.deleteMany({});
-      return true;
-    },
-
-    deleteUsersByEmail: async (_, { email }) => {
-      const u = await User.deleteOne({ email });
-      return true;
-    },
-    getContent: async (_, { enneagramType, type, pageSize, lastDate }) => {
-      const params = lastDate
-        ? { dateCreated: { $lt: lastDate }, enneagramType }
-        : { enneagramType };
-      const content = await Content.find(params)
-        .limit(10)
-        .sort({ dateCreated: -1 })
-        .exec();
-      const count = await Content.countDocuments({
-        enneagramType,
-      });
-      return {
-        content,
-        count,
-      };
-    },
-
-    deleteContent: async () => {
-      await Content.deleteMany({});
-      return true;
     },
     getSortedComments: async (
       _,
@@ -304,7 +184,7 @@ export const Resolvers: IResolvers = {
       const count = await Comment.countDocuments(
         questionId
           ? {
-              parentId: questionId
+              parentId: questionId,
             }
           : {}
       );
@@ -328,45 +208,6 @@ export const Resolvers: IResolvers = {
         count,
       };
     },
-
-    changeField: async () => {
-      const successQ = await Question.update(
-        {},
-        {
-          $set: { commenterIds: {} },
-        },
-        { upsert: false, multi: true }
-      );
-      const successU = await User.update(
-        {},
-        {
-          $set: { confirmedUser: true },
-        },
-        { upsert: false, multi: true }
-      );
-      if (successQ && successU) {
-        return true;
-      } else {
-        return false;
-      }
-    },
-
-    getRelationshipData: async (_, { id1, id2, pageSize, lastDate }) => {
-      const params = lastDate
-        ? { dateCreated: { $lt: lastDate }, relationship: { $all: [id1, id2] } }
-        : { relationship: { $all: [id1, id2] } };
-      return {
-        RelationshipData: await RelationshipData.find(params)
-          .limit(pageSize)
-          .sort({ dateCreated: -1 })
-          .exec(),
-        count: RelationshipData.countDocuments({
-          relationship: { $all: [id1, id2] },
-        }),
-      };
-    },
-
-    getAdmins: async () => await Admin.find(),
   },
 
   Question: {
@@ -433,59 +274,6 @@ export const Resolvers: IResolvers = {
       } else {
         return [];
       }
-    },
-  },
-
-  Content: {
-    comments: async (root) => {
-      if (root.commentIds && root.commentIds.length) {
-        const comments = await Comment.find({ id: root.commentIds })
-          .limit(10)
-          .sort({ dateCreated: -1 });
-        const count = await Comment.countDocuments({ id: root.commentIds });
-        return {
-          comments,
-          count,
-        };
-      } else {
-        return {
-          comments: [],
-          count: 0,
-        };
-      }
-    },
-    likes: async (root) => {
-      return root.likeIds;
-    },
-  },
-
-  RelationshipData: {
-    author: async (root) => {
-      if (root.authorId) {
-        return await User.findOne({ id: root.authorId });
-      } else {
-        return null;
-      }
-    },
-    comments: async (root) => {
-      if (root.commentIds && root.commentIds.length) {
-        const comments = await Comment.find({ id: root.commentIds })
-          .limit(10)
-          .sort({ dateCreated: -1 });
-        const count = await Comment.countDocuments({ id: root.commentIds });
-        return {
-          comments,
-          count,
-        };
-      } else {
-        return {
-          comments: [],
-          count: 0,
-        };
-      }
-    },
-    likes: async (root) => {
-      return root.likeIds;
     },
   },
 
@@ -562,9 +350,10 @@ export const Resolvers: IResolvers = {
                     ]);
                     newVals = notification;
                   }
-                  redisClient.set(`push:notifications:${q.authorId}`, newVals);
+                  const authorId = q.authorId;
+                  redisClient.set(`push:notifications:${authorId}`, newVals);
                   redisClient.publish(
-                    `push:notifications:${q.authorId}`,
+                    `push:notifications:${authorId}`,
                     newVals
                   );
                 }
@@ -728,210 +517,94 @@ export const Resolvers: IResolvers = {
         return false;
       }
     },
-
-    createRelationshipData: async (_, { id, userId, relationship, text }) => {
-      const r = await new RelationshipData({
-        id,
-        authorId: userId,
-        relationship,
-        text,
-        likeIds: [],
-        commentIds: [],
-        dateCreated: new Date(),
-        dateModified: new Date(),
-      });
-      if (r) {
-        return await r.save();
-      } else {
-        return false;
-      }
-    },
-
-    updateThread: async (_, { threadId, text }) => {
-      const r = await RelationshipData.findOneAndUpdate(
-        {
-          id: threadId,
-        },
-        {
-          text,
-          dateModified: new Date(),
-          modified: true,
-        }
-      );
-      if (r) {
-        await r.save();
-        return true;
-      } else {
-        return false;
-      }
-    },
-
-    // ************** Auth *********************
-
-    createUser: async (_, { email, password, enneagramType }) => {
-      const u = new User({
-        email,
-        password,
-        enneagramId: enneagramType,
-        tokenVersion: 0,
-        confirmedUser: false,
-        confirmationToken: crypto.randomBytes(20).toString("hex"),
-        resetPasswordToken: null,
-        resetPasswordExpires: null,
-        role: "user",
-        dateCreated: new Date(),
-        dateModified: new Date(),
-      });
-      u.id = u._id;
-      await u.save();
-      return u;
-    },
-
-    confirmUser: async (_, { confirmationToken }) => {
-      const u = await User.findOneAndUpdate(
-        {
-          confirmationToken,
-        },
-        {
-          confirmedUser: true,
-        }
-      );
-      if (u) {
-        return true;
-      } else {
-        return false;
-      }
-    },
-
-    updateUser: async (
-      _,
-      { id, firstName, lastName, email, enneagramId, mbtiId }
-    ) => {
-      const u = User.findOneAndUpdate(
-        { id },
-        {
-          firstName,
-          lastName,
-          email,
-          enneagramId,
-          mbtiId,
-          resetPasswordToken: null,
-          resetPasswordExpires: null,
-          dateModified: new Date(),
-        }
-      );
-      return u;
-    },
-
-    revokeRefreshTokensForUser: async (_, { email }) => {
-      await User.updateOne({ email }, { $inc: { tokenVersion: 1 } });
-      return true;
-    },
-    recover: async (_, { email }) => {
-      const u = await User.updateOne(
-        { email },
-        {
-          $inc: { tokenVersion: 1 },
-          resetPasswordToken: crypto.randomBytes(20).toString("hex"),
-          resetPasswordExpires: Date.now() + 3600000,
-        }
-      );
-      const updatedUser = await User.findOne({ email });
-      if (u) {
-        return updatedUser;
-      } else {
-        return null;
-      }
-    },
-
-    reset: async (_, { resetPasswordToken }) => {
-      const u = await User.findOne({
-        resetPasswordToken,
-        resetPasswordExpires: { $gt: Date.now() },
-      });
-      return u;
-    },
-    resetPassword: async (_, { password, resetPasswordToken }) => {
-      const u = await User.findOneAndUpdate(
-        {
-          resetPasswordToken,
-          resetPasswordExpires: { $gt: Date.now() },
-        },
-        {
-          password,
-        }
-      );
-      if (u) {
-        return u.save();
-      } else {
-        return null;
-      }
-    },
-
-    deleteUser: async (_, { email }) => {
-      await User.deleteOne({ email });
-      return true;
-    },
-
-    changeUser: async (_, { id, id2, tag }) => {
-      let user = await Admin.findOne({ id, role: "admin" });
-      if (user) {
-        const u = await User.findOneAndUpdate(
-          { email: id2 },
-          { role: tag, dateModified: new Date() }
-        );
-        if (u) {
-          u.save();
-          const a = await Admin.findOne({ id: id2 });
-          if (a) {
-            const updated = await Admin.findOneAndUpdate(
-              { id: id2 },
-              { role: tag, dateModified: new Date() }
-            );
-            return true;
-          } else {
-            const admin = new Admin({
-              id: id2,
-              role: tag,
-              dateModified: new Date(),
-              dateCreated: new Date(),
-            });
-            await admin.save()
-            return true;
-          }
-        } else {
-          return false;
-        }
-      } else {
-        return false;
-      }
-    },
-
-    change: async (_, { id, type, tag }) => {
-      const user = await User.findOne({ id, role: "admin" });
-      let success;
-      if (user) {
-        if (type === "content") {
-          success = await Content.deleteOne({ id: tag });
-        } else if (type === "comment") {
-          success = await Comment.deleteOne({ id: tag });
-        } else if (type === "question") {
-          success = await Question.deleteOne({ id: tag });
-        } else if (type === "RelationshipData") {
-          success = await RelationshipData.deleteOne({ id: tag });
-        } else if (type === "user") {
-          success = await User.deleteOne({ id: tag });
-        } else {
-          success = false;
-        }
-        if (success) {
-          return true;
-        } else {
-          return false;
-        }
-      } else {
-        return false;
-      }
-    },
   },
 };
+
+export const QandATypes = gql`
+  scalar Date
+  scalar Map
+
+  type Query {
+    hello: String
+    questions: [Question]!
+    comments: [Comment]!
+    deleteAllQuestions: Boolean
+    deleteAllComments: Boolean
+    getDashboard(userId: String!): [Question]
+    getQuestion(questionId: String!): Question
+    getComment(commentId: String!): Comment
+    getQuestions(pageSize: Int, lastDate: String!): PaginatedQuestions
+    getMoreComments(parentId: String!, lastDate: String!): PaginatedComments
+
+    getSortedComments(
+      questionId: String
+      enneagramTypes: [String]
+      dateRange: String
+      sortBy: String
+      cursorId: String
+    ): PaginatedComments
+  }
+
+  type Comment {
+    id: String!
+    parentId: String
+    # authorId: String
+    author: User
+    comment: String
+    likes: [String]
+    comments: PaginatedComments
+    dateCreated: Date
+  }
+
+  type PaginatedQuestions {
+    questions: [Question]
+    count: Int
+  }
+
+  type Question {
+    id: String!
+    question: String!
+    author: User
+    # authorId: String
+    likes: [String]
+    commenterIds: Map
+    comments: PaginatedComments
+    subscribers: [String]
+    dateCreated: Date
+    dateModified: Date
+    modified: Boolean
+  }
+
+  type PaginatedComments {
+    comments: [Comment]
+    count: Int
+  }
+
+  type Mutation {
+    createQuestion(id: String!, question: String!, authorId: String!): Question!
+
+    addComment(
+      id: String!
+      parentId: String
+      authorId: String!
+      comment: String!
+      type: String!
+    ): Comment!
+
+    addSubscription(
+      userId: String!
+      questionId: String!
+      operation: String!
+    ): Boolean!
+
+    addLike(
+      userId: String!
+      id: String!
+      type: String!
+      operation: String!
+    ): Boolean!
+
+    updateQuestion(questionId: String!, question: String): Boolean
+    updateComment(commentId: String!, comment: String): Boolean
+  }
+`;

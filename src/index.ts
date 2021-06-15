@@ -10,9 +10,11 @@ import depthLimit from "graphql-depth-limit";
 import { createServer } from "http";
 import mongoose from "mongoose";
 
-import { Resolvers } from "./resolvers/Resolvers";
-import { Comment } from "./resolvers/Resolvers";
-import { QuestionTypes } from "./types/questionTypes";
+import { BlogResolvers, BlogTypes } from "./resolvers/blog"
+import { ContentResolvers, ContentTypes } from "./resolvers/content"
+import { Comment, QandAResolvers, QandATypes } from "./resolvers/questionAndAnswer";
+import { RelationshipResolvers, RelationshipTypes } from "./resolvers/relationship"
+import { UserResolvers, UserTypes } from "./resolvers/users"
 
 mongoose.connect("mongodb://localhost:27017/personalityApp", {
   useNewUrlParser: true,
@@ -25,8 +27,8 @@ export const redis = require("redis");
 (async () => {
   const app = express();
   const server = new ApolloServer({
-    typeDefs: [QuestionTypes],
-    resolvers: [Resolvers],
+    typeDefs: [QandATypes, UserTypes, ContentTypes, RelationshipTypes, BlogTypes],
+    resolvers: [QandAResolvers, UserResolvers, ContentResolvers, RelationshipResolvers, BlogResolvers],
     context: () => {
       return {
         commentLoader: new DataLoader(async (keys: any) => {

@@ -66,6 +66,13 @@ export const ContentResolvers: IResolvers = {
     likes: async (root) => {
       return root.likeIds;
     },
+    author: async (root) => {
+      if (root.userId) {
+        return await User.findOne({ id: root.userId });
+      } else {
+        return null;
+      }
+    },
   },
 
   Mutation: {
@@ -103,6 +110,7 @@ export const ContentResolvers: IResolvers = {
 };
 
 import { gql } from "apollo-server-express";
+import { User } from "./users";
 
 export const ContentTypes = gql`
   extend type Query {
@@ -122,7 +130,7 @@ export const ContentTypes = gql`
 
   type Content {
     id: String!
-    userId: String!
+    author: User
     enneagramType: String!
     text: String
     img: String

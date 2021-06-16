@@ -3,22 +3,32 @@ import mongoose from "mongoose";
 
 const Schema = mongoose.Schema;
 import { Comment } from "./questionAndAnswer";
-export const Blog = mongoose.model(
-  "Blog",
-  new Schema({
+
+const BlogSchema = new Schema({
     id: String!,
     title: String!,
     img: String!,
     description: String,
     preview: String,
     body: String,
-    author: String!,
+    authorId: String!,
     likeIds: [String],
     commentIds: [String],
     dateCreated: Date,
     dateModified: Date,
-  })
-);
+  });
+
+  BlogSchema.virtual("author", {
+    ref: "User",
+    localField: "authorId",
+    foreignField: "id",
+    justOne: true,
+  });
+  
+  export const Blog = mongoose.model(
+    "Blog",
+    BlogSchema
+  );
 
 export const BlogResolvers: IResolvers = {
   Date: String,
@@ -36,6 +46,9 @@ export const BlogResolvers: IResolvers = {
         count,
       };
     },
+    getBlog: async (_, { title }) => {
+        return await Blog.findOne({title})
+    }
   },
 
   Blog: {
@@ -59,17 +72,24 @@ export const BlogResolvers: IResolvers = {
     likes: async (root) => {
       return root.likeIds;
     },
+    author: async (root) => {
+        if (root.authorId) {
+          return await User.findOne({ id: root.authorId });
+        } else {
+          return null;
+        }
+      },
   },
 
   Mutation: {
-    createBlog: async (_, { title, img, description, body, author }) => {
+    createBlog: async (_, { title, img, description, body, authorId }) => {
       let b = new Blog({
         title: title,
         img: img,
         description: description,
         preview: body.slice(0, 50),
         body: body,
-        author: author,
+        authorId: authorId,
         likeIds: [],
         commentIds: [],
         dateCreated: new Date(),
@@ -80,7 +100,7 @@ export const BlogResolvers: IResolvers = {
       return b;
     },
 
-    updateBlog: async (_, { id, title, img, description, body, author }) => {
+    updateBlog: async (_, { id, title, img, description, body, authorId }) => {
       const b = await Blog.findOneAndUpdate(
         {
           id,
@@ -90,7 +110,7 @@ export const BlogResolvers: IResolvers = {
           img,
           description,
           body,
-          author,
+          authorId,
           preview: body.slice(0, 50),
           dateModified: new Date(),
         }
@@ -109,11 +129,12 @@ export const BlogResolvers: IResolvers = {
 };
 
 import { gql } from "apollo-server-express";
-
+import { User } from "./users";
 export const BlogTypes = gql`
   extend type Query {
     getBlogs(lastDate: String): PaginatedBlogs
     # deleteAllBlogs: Boolean
+    getBlog(title: String! ): Blog
   }
 
   type PaginatedBlogs {
@@ -123,9 +144,11 @@ export const BlogTypes = gql`
 
   type Blog {
     id: String!
+    author: User
     title: String!
     description: String!
     body: String!
+    preview: String
     img: String
     likes: [String]
     comments: PaginatedComments
@@ -139,7 +162,7 @@ export const BlogTypes = gql`
       img: String
       description: String!
       body: String!
-      author: String!
+      authorId: String!
     ): Blog!
     updateBlog(
       id: String

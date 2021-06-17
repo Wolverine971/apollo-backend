@@ -11,6 +11,7 @@ const BlogSchema = new Schema({
     description: String,
     preview: String,
     body: String,
+    size: Number,
     authorId: String!,
     likeIds: [String],
     commentIds: [String],
@@ -82,7 +83,7 @@ export const BlogResolvers: IResolvers = {
   },
 
   Mutation: {
-    createBlog: async (_, { title, img, description, body, authorId }) => {
+    createBlog: async (_, { title, img, description, body, authorId, size }) => {
       let b = new Blog({
         title: title,
         img: img,
@@ -90,6 +91,7 @@ export const BlogResolvers: IResolvers = {
         preview: body.slice(0, 50),
         body: body,
         authorId: authorId,
+        size: size,
         likeIds: [],
         commentIds: [],
         dateCreated: new Date(),
@@ -100,7 +102,7 @@ export const BlogResolvers: IResolvers = {
       return b;
     },
 
-    updateBlog: async (_, { id, title, img, description, body, authorId }) => {
+    updateBlog: async (_, { id, title, img, description, body, authorId, size }) => {
       const b = await Blog.findOneAndUpdate(
         {
           id,
@@ -111,6 +113,7 @@ export const BlogResolvers: IResolvers = {
           description,
           body,
           authorId,
+          size,
           preview: body.slice(0, 50),
           dateModified: new Date(),
         }
@@ -150,6 +153,7 @@ export const BlogTypes = gql`
     body: String!
     preview: String
     img: String
+    size: Int
     likes: [String]
     comments: PaginatedComments
     dateCreated: Date!
@@ -163,6 +167,7 @@ export const BlogTypes = gql`
       description: String!
       body: String!
       authorId: String!
+      size: Int
     ): Blog!
     updateBlog(
       id: String
@@ -170,6 +175,7 @@ export const BlogTypes = gql`
       img: String
       description: String!
       body: String!
+      size: Int
     ): Blog!
     deleteBlog(id: String): Boolean
   }

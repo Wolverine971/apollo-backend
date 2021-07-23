@@ -156,19 +156,24 @@ export const UserResolvers: IResolvers = {
       return true;
     },
     recover: async (_, { email }) => {
-      const u = await User.updateOne(
-        { email },
-        {
-          $inc: { tokenVersion: 1 },
-          resetPasswordToken: crypto.randomBytes(20).toString("hex"),
-          resetPasswordExpires: Date.now() + 3600000,
+      const userExists = await User.findOne({ email });
+      if (userExists) {
+        const u = await User.updateOne(
+          { email },
+          {
+            $inc: { tokenVersion: 1 },
+            resetPasswordToken: crypto.randomBytes(20).toString("hex"),
+            resetPasswordExpires: Date.now() + 3600000,
+          }
+        );
+        const updatedUser = await User.findOne({ email });
+        if (u) {
+          return updatedUser;
+        } else {
+          return null;
         }
-      );
-      const updatedUser = await User.findOne({ email });
-      if (u) {
-        return updatedUser;
       } else {
-        return null;
+        return "user doesnt exits";
       }
     },
 
@@ -184,6 +189,7 @@ export const UserResolvers: IResolvers = {
         {
           resetPasswordToken,
           resetPasswordExpires: { $gt: Date.now() },
+          confirmedUser: true
         },
         {
           password,
@@ -270,7 +276,6 @@ import { Question, Comment } from "./questionAndAnswer";
 import { RelationshipData } from "./relationship";
 
 export const UserTypes = gql`
-
   extend type Query {
     users(cursorId: String, id: String!): PaginatedUsers
     getUserByEmail(email: String!): User
@@ -280,13 +285,12 @@ export const UserTypes = gql`
     changeField: Boolean
 
     getAdmins: [Admin]
-
   }
   type PaginatedUsers {
     users: [User]
     count: Int
   }
-  
+
   type User {
     id: String
     firstName: String
@@ -296,24 +300,24 @@ export const UserTypes = gql`
     enneagramId: String
     mbtiId: String
     tokenVersion: Int
-    confirmedUser: Boolean,
-    confirmationToken: String,
-    resetPasswordToken: String,
-    resetPasswordExpires: Date,
-    role: String,
+    confirmedUser: Boolean
+    confirmationToken: String
+    resetPasswordToken: String
+    resetPasswordExpires: Date
+    role: String
     dateCreated: Date
     dateModified: Date
   }
 
   type Admin {
-    id: String,
-    role: String,
-    dateCreated: Date,
-    dateModified: Date,
+    id: String
+    role: String
+    dateCreated: Date
+    dateModified: Date
   }
 
   extend type Mutation {
-  createUser(email: String!, password: String!, enneagramType: String!): User!
+    createUser(email: String!, password: String!, enneagramType: String!): User!
     confirmUser(confirmationToken: String!): Boolean!
 
     updateUser(

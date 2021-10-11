@@ -9,7 +9,6 @@ const BlogSchema = new Schema({
     title: String!,
     img: String!,
     description: String,
-    preview: String,
     body: String,
     size: Number,
     authorId: String!,
@@ -88,7 +87,6 @@ export const BlogResolvers: IResolvers = {
         title: title,
         img: img,
         description: description,
-        preview: body.slice(0, 50),
         body: body,
         authorId: authorId,
         size: size,
@@ -114,7 +112,6 @@ export const BlogResolvers: IResolvers = {
           body,
           authorId,
           size,
-          preview: body.slice(0, 50),
           dateModified: new Date(),
         }
       );
@@ -151,7 +148,6 @@ export const BlogTypes = gql`
     title: String!
     description: String!
     body: String!
-    preview: String
     img: String
     size: Int
     likes: [String]
@@ -170,11 +166,12 @@ export const BlogTypes = gql`
       size: Int
     ): Blog!
     updateBlog(
-      id: String
-      title: String!
+      id: String!
+      title: String
       img: String
-      description: String!
-      body: String!
+      description: String
+      body: String
+      authorId: String!
       size: Int
     ): Blog!
     deleteBlog(id: String): Boolean

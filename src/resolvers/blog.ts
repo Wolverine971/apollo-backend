@@ -82,8 +82,9 @@ export const BlogResolvers: IResolvers = {
   },
 
   Mutation: {
-    createBlog: async (_, { title, img, description, body, authorId, size }) => {
+    createBlog: async (_, { id, title, img, description, body, authorId, size }) => {
       let b = new Blog({
+        id: id,
         title: title,
         img: img,
         description: description,
@@ -95,7 +96,6 @@ export const BlogResolvers: IResolvers = {
         dateCreated: new Date(),
         dateModified: new Date(),
       });
-      b.id = b._id;
       await b.save();
       return b;
     },
@@ -158,6 +158,7 @@ export const BlogTypes = gql`
 
   extend type Mutation {
     createBlog(
+      id: String!
       title: String!
       img: String
       description: String!

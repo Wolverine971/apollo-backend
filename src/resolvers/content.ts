@@ -77,33 +77,36 @@ export const ContentResolvers: IResolvers = {
 
   Mutation: {
     createContent: async (_, { id, userId, enneagramType, text, img }) => {
-      let c;
-      if (id) {
-        c = new Content({
-          id: id,
-          enneagramType: enneagramType,
-          userId: userId,
-          text: text,
-          img: img,
-          likeIds: [],
-          commentIds: [],
-          dateCreated: new Date(),
-          dateModified: new Date(),
-        });
-      } else {
-        c = new Content({
-          userId: userId,
-          enneagramType: enneagramType,
-          text: text,
-          img: img,
-          likeIds: [],
-          commentIds: [],
-          dateCreated: new Date(),
-          dateModified: new Date(),
-        });
-        c.id = c._id;
-      }
+      let c = new Content({
+        id: id,
+        enneagramType: enneagramType,
+        userId: userId,
+        text: text,
+        img: img,
+        likeIds: [],
+        commentIds: [],
+        dateCreated: new Date(),
+        dateModified: new Date(),
+      });
       await c.save();
+      return c;
+    },
+
+    updateContent: async (_, { id, userId, enneagramType, text, img }) => {
+      let c = await Content.findOneAndUpdate(
+        {
+          id,
+        },
+        {
+          enneagramType: enneagramType,
+          userId: userId,
+          text: text,
+          img: img,
+          likeIds: [],
+          commentIds: [],
+          dateModified: new Date(),
+        }
+      );
       return c;
     },
   },
@@ -148,5 +151,13 @@ export const ContentTypes = gql`
       text: String
       img: String
     ): Content!
+
+    updateContent(
+      id: String
+      userId: String!
+      enneagramType: String!
+      text: String
+      img: String
+      ): Content!
   }
 `;

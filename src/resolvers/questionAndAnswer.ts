@@ -3,6 +3,7 @@ import { IResolvers } from "graphql-tools";
 import mongoose from "mongoose";
 
 import { redis } from "..";
+import { Blog } from "./blog";
 import { Content } from "./content";
 import { RelationshipData } from "./relationship";
 import { User } from "./users";
@@ -375,7 +376,12 @@ export const QandAResolvers: IResolvers = {
             { id: parentId },
             { $push: { commentIds: [c.id] } }
           );
-        } else {
+        } else if (type === "blog") {
+          await Blog.updateOne(
+            { id: parentId },
+            { $push: { commentIds: [c.id] } }
+          );
+        }else {
           await RelationshipData.updateOne(
             { id: parentId },
             { $push: { commentIds: [c.id] } }

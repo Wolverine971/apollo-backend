@@ -443,6 +443,18 @@ export const QandAResolvers: IResolvers = {
             { $pullAll: { likeIds: [userId] } }
           );
         }
+      } else if (type === "blog") {
+        if (operation === "add") {
+          await Blog.updateOne(
+            { id: id },
+            { $push: { likeIds: [userId] } }
+          );
+        } else {
+          await Blog.updateOne(
+            { id: id },
+            { $pullAll: { likeIds: [userId] } }
+          );
+        }
       } else {
         if (operation === "add") {
           await Comment.updateOne({ id: id }, { $push: { likeIds: [userId] } });
@@ -454,37 +466,6 @@ export const QandAResolvers: IResolvers = {
         }
       }
       return true;
-    },
-
-    createContent: async (_, { id, userId, enneagramType, text, img }) => {
-      let c;
-      if (id) {
-        c = new Content({
-          id: id,
-          enneagramType: enneagramType,
-          userId: userId,
-          text: text,
-          img: img,
-          likeIds: [],
-          commentIds: [],
-          dateCreated: new Date(),
-          dateModified: new Date(),
-        });
-      } else {
-        c = new Content({
-          userId: userId,
-          enneagramType: enneagramType,
-          text: text,
-          img: img,
-          likeIds: [],
-          commentIds: [],
-          dateCreated: new Date(),
-          dateModified: new Date(),
-        });
-        c.id = c._id;
-      }
-      await c.save();
-      return c;
     },
 
     updateQuestion: async (_, { questionId, question }) => {

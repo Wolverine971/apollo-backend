@@ -11,6 +11,7 @@ export const Content = mongoose.model(
     userId: String!,
     text: String,
     img: String,
+    imgText: String,
     likeIds: [String],
     commentIds: [String],
     dateCreated: Date,
@@ -76,13 +77,14 @@ export const ContentResolvers: IResolvers = {
   },
 
   Mutation: {
-    createContent: async (_, { id, userId, enneagramType, text, img }) => {
+    createContent: async (_, { id, userId, enneagramType, text, img, imgText }) => {
       let c = new Content({
         id: id,
         enneagramType: enneagramType,
         userId: userId,
         text: text,
         img: img,
+        imgText: imgText,
         likeIds: [],
         commentIds: [],
         dateCreated: new Date(),
@@ -92,7 +94,7 @@ export const ContentResolvers: IResolvers = {
       return c;
     },
 
-    updateContent: async (_, { id, userId, enneagramType, text, img }) => {
+    updateContent: async (_, { id, userId, enneagramType, text, img, imgText }) => {
       let c = await Content.findOneAndUpdate(
         {
           id,
@@ -102,8 +104,7 @@ export const ContentResolvers: IResolvers = {
           userId: userId,
           text: text,
           img: img,
-          likeIds: [],
-          commentIds: [],
+          imgText: imgText,
           dateModified: new Date(),
         }
       );
@@ -137,6 +138,7 @@ export const ContentTypes = gql`
     enneagramType: String!
     text: String
     img: String
+    imgText: String
     likes: [String]
     comments: PaginatedComments
     dateCreated: Date!
@@ -150,6 +152,7 @@ export const ContentTypes = gql`
       enneagramType: String!
       text: String
       img: String
+      imgText: String
     ): Content!
 
     updateContent(
@@ -158,6 +161,7 @@ export const ContentTypes = gql`
       enneagramType: String!
       text: String
       img: String
+      imgText: String
       ): Content!
   }
 `;

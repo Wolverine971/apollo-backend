@@ -8,6 +8,7 @@ const BlogSchema = new Schema({
     id: String!,
     title: String!,
     img: String!,
+    imgText: String,
     description: String,
     body: String,
     size: Number,
@@ -82,11 +83,12 @@ export const BlogResolvers: IResolvers = {
   },
 
   Mutation: {
-    createBlog: async (_, { id, title, img, description, body, authorId, size }) => {
+    createBlog: async (_, { id, title, img, imgText, description, body, authorId, size }) => {
       let b = new Blog({
         id: id,
         title: title,
         img: img,
+        imgText: imgText,
         description: description,
         body: body,
         authorId: authorId,
@@ -100,7 +102,7 @@ export const BlogResolvers: IResolvers = {
       return b;
     },
 
-    updateBlog: async (_, { id, title, img, description, body, authorId, size }) => {
+    updateBlog: async (_, { id, title, img, imgText, description, body, authorId, size }) => {
       const b = await Blog.findOneAndUpdate(
         {
           id,
@@ -108,6 +110,7 @@ export const BlogResolvers: IResolvers = {
         {
           title,
           img,
+          imgText,
           description,
           body,
           authorId,
@@ -149,6 +152,7 @@ export const BlogTypes = gql`
     description: String!
     body: String!
     img: String
+    imgText: String
     size: Int
     likes: [String]
     comments: PaginatedComments
@@ -161,6 +165,7 @@ export const BlogTypes = gql`
       id: String!
       title: String!
       img: String
+      imgText: String
       description: String!
       body: String!
       authorId: String!
@@ -170,6 +175,7 @@ export const BlogTypes = gql`
       id: String!
       title: String
       img: String
+      imgText: String
       description: String
       body: String
       authorId: String!

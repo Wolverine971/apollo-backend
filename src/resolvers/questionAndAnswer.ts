@@ -371,7 +371,7 @@ export const QandAResolvers: IResolvers = {
             { id: parentId },
             { $push: { commentIds: [c.id] } }
           );
-        } else if (type === "content") {
+        } else if (type === "comment") {
           await Comment.updateOne(
             { id: parentId },
             { $push: { commentIds: [c.id] } }

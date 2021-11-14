@@ -39,11 +39,12 @@ export const UserResolvers: IResolvers = {
   Date: String,
 
   Query: {
-    users: async (_, { cursorId, id }) => {
+    users: async (_, { lastDate, id }) => {
       let user = await User.findOne({ id, role: "admin" });
       if (user) {
-        const cursorParam = cursorId ? `id: { $gt: ${cursorId} }` : null;
-        const u = await User.find({ cursorParam }).limit(10);
+
+        const params = lastDate ? { dateCreated: { $lte: lastDate } } : {};
+        const u = await User.find(params).limit(10).sort({ dateCreated: -1 });
 
         return {
           users: u,
@@ -277,7 +278,7 @@ import { RelationshipData } from "./relationship";
 
 export const UserTypes = gql`
   extend type Query {
-    users(cursorId: String, id: String!): PaginatedUsers
+    users(lastDate: String, id: String!): PaginatedUsers
     getUserByEmail(email: String!): User
     getUserById(id: String!): User
     deleteUsers: Boolean

@@ -112,7 +112,7 @@ export const QandAResolvers: IResolvers = {
     },
     getSortedComments: async (
       _,
-      { questionId, enneagramTypes, dateRange, sortBy, cursorId }
+      { questionId, enneagramTypes, dateRange, sortBy, skip }
     ) => {
       let date;
 
@@ -166,20 +166,17 @@ export const QandAResolvers: IResolvers = {
           ? { dateCreated: 1 }
           : { dateCreated: -1 };
       const newDate = date;
-      const cursorParam = cursorId ? `id: { $gt: ${cursorId} }` : null;
       const params = questionId
         ? {
             parentId: questionId,
             dateCreated: {
               $gte: newDate,
-            },
-            cursorParam,
+            }
           }
         : {
             dateCreated: {
               $gte: newDate,
-            },
-            cursorParam,
+            }
           };
       // will always show total because there is additional filtering below
       const count = await Comment.countDocuments(
@@ -192,6 +189,7 @@ export const QandAResolvers: IResolvers = {
       const comments = await Comment.find(params)
         .limit(10)
         .sort(sort)
+        .skip(skip)
         .populate("author", "enneagramId")
         .map((c) => {
           const filteredComments = c.map(async (e: any) => {
@@ -528,7 +526,7 @@ export const QandATypes = gql`
       enneagramTypes: [String]
       dateRange: String
       sortBy: String
-      cursorId: String
+      skip: Int
     ): PaginatedComments
   }
 

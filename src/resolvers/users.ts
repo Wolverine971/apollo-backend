@@ -43,7 +43,7 @@ export const UserResolvers: IResolvers = {
       let user = await User.findOne({ id, role: "admin" });
       if (user) {
 
-        const params = lastDate ? { dateCreated: { $lte: lastDate } } : {};
+        const params = lastDate ? { dateCreated: { $lt: lastDate } } : {};
         const u = await User.find(params).limit(10).sort({ dateCreated: -1 });
 
         return {

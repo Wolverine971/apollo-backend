@@ -87,7 +87,7 @@ export const QandAResolvers: IResolvers = {
       return c;
     },
     getQuestions: async (_, { pageSize, lastDate }) => {
-      const params = lastDate ? { dateCreated: { $lte: lastDate } } : {};
+      const params = lastDate ? { dateCreated: { $lt: lastDate } } : {};
       return {
         questions: Question.find(params)
           .limit(pageSize)

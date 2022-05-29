@@ -44,7 +44,7 @@ export const UserResolvers: IResolvers = {
       if (user) {
 
         const params = lastDate ? { dateCreated: { $lt: lastDate } } : {};
-        const u = await User.find(params).limit(10).sort({ dateCreated: -1 });
+        const u = await User.find(params).limit(100).sort({ dateCreated: -1 });
 
         return {
           users: u,
@@ -249,6 +249,29 @@ export const UserResolvers: IResolvers = {
         if (type === "content") {
           success = await Content.deleteOne({ id: tag });
         } else if (type === "comment") {
+          
+          const comment: any = await Comment.findOne({ id: tag })
+          const commentParent = await Comment.findOne({ id: comment.parentId })
+          if(commentParent){
+            let deleteCommentParent = await Comment.deleteOne({ id: comment.parentId });
+            console.log(deleteCommentParent)
+
+          } else {
+            const questionParent = await Question.findOne({ id: comment.parentId })
+            if(questionParent){
+              let deleteCommentParent = await Question.deleteOne({ id: comment.parentId });
+              console.log(deleteCommentParent)
+  
+            } else {
+              const contentParent = await Content.findOne({ id: comment.parentId })
+              if(contentParent){
+                let deleteContentParent = await Content.deleteOne({ id: comment.parentId });
+                console.log(deleteContentParent)
+              } else {
+                console.log('no parent id')
+              }
+            }
+          }
           success = await Comment.deleteOne({ id: tag });
         } else if (type === "question") {
           success = await Question.deleteOne({ id: tag });

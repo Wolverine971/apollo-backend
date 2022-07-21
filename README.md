@@ -5,18 +5,12 @@
 
 ## Prerequisites
 
-- You need to install [MongoDB](https://docs.mongodb.com/manual/administration/install-community/) either on your local machine or using a cloud service as [mLab](https://mlab.com/).
+- [MongoDB](https://docs.mongodb.com/manual/administration/install-community/)
 
-- Need Redis- currently on windows using wsl that uses ubuntu 
+- Need Redis- currently on windows using wsl 
     ```sudo service redis-server start```
 ## Features
 
-- [TypeScript](https://www.typescriptlang.org/) as Language
-- Framework: [apollo-server-express](https://www.npmjs.com/package/apollo-server-express)
+- [TypeScript](https://www.typescriptlang.org/)
+- [apollo-server-express](https://www.npmjs.com/package/apollo-server-express)
 
-## Datahandled
-
-- Questions- text
-- Comments- text
-- Users- profiles
-- Content- img urls and text

@@ -19,6 +19,8 @@ const questionSchema = new Schema({
     type: Map,
     of: String,
   },
+  context: String,
+  img: String,
   commentIds: [String],
   subscriberIds: [String],
   dateCreated: Date,
@@ -277,11 +279,13 @@ export const QandAResolvers: IResolvers = {
   },
 
   Mutation: {
-    createQuestion: async (_, { id, question, authorId }) => {
+    createQuestion: async (_, { id, question, authorId, context, img }) => {
       const q = new Question({
         id,
         question,
         authorId,
+        context, 
+        img,
         commenterIds: {},
         likeIds: [],
         commentIds: [],
@@ -551,6 +555,8 @@ export const QandATypes = gql`
     question: String!
     author: User
     # authorId: String
+    context: String
+    img: String
     likes: [String]
     commenterIds: Map
     comments: PaginatedComments
@@ -566,7 +572,7 @@ export const QandATypes = gql`
   }
 
   type Mutation {
-    createQuestion(id: String!, question: String!, authorId: String!): Question!
+    createQuestion(id: String!, question: String!, authorId: String!, context: String, img: String): Question!
 
     addComment(
       id: String!

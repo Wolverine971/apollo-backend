@@ -48,7 +48,8 @@ export const BlogResolvers: IResolvers = {
       };
     },
     getBlog: async (_, { title }) => {
-        return await Blog.findOne({title})
+      const checkTitle = title.replace(/-/g, ' ')
+      return await Blog.findOne({title: checkTitle})
     }
   },
 

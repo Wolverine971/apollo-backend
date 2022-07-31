@@ -20,6 +20,7 @@ const questionSchema = new Schema({
     of: String,
   },
   context: String,
+  url: String,
   img: String,
   commentIds: [String],
   subscriberIds: [String],
@@ -67,6 +68,9 @@ export const QandAResolvers: IResolvers = {
   Query: {
     questions: () => Question.find(),
     comments: () => Comment.find(),
+    // const query = `query deleteAllQuestions {
+    //   deleteAllQuestions
+    //   }`;
     deleteAllQuestions: async () => {
       await Question.deleteMany({});
       return true;
@@ -80,8 +84,8 @@ export const QandAResolvers: IResolvers = {
       return q;
     },
 
-    getQuestion: async (_, { questionId }) => {
-      const q = await Question.findOne({ id: questionId });
+    getQuestion: async (_, { questionUrl }) => {
+      const q = await Question.findOne({ url: questionUrl });
       return q;
     },
     getComment: async (_, { commentId }) => {
@@ -279,13 +283,14 @@ export const QandAResolvers: IResolvers = {
   },
 
   Mutation: {
-    createQuestion: async (_, { id, question, authorId, context, img }) => {
+    createQuestion: async (_, { id, question, authorId, context, img, url }) => {
       const q = new Question({
         id,
         question,
         authorId,
         context, 
         img,
+        url,
         commenterIds: {},
         likeIds: [],
         commentIds: [],
@@ -470,13 +475,14 @@ export const QandAResolvers: IResolvers = {
       return true;
     },
 
-    updateQuestion: async (_, { questionId, question }) => {
+    updateQuestion: async (_, { questionId, question, url }) => {
       const q = await Question.findOneAndUpdate(
         {
           id: questionId,
         },
         {
           question,
+          url,
           dateModified: new Date(),
           modified: true,
         }
@@ -520,7 +526,7 @@ export const QandATypes = gql`
     deleteAllQuestions: Boolean
     deleteAllComments: Boolean
     getDashboard(userId: String!): [Question]
-    getQuestion(questionId: String!): Question
+    getQuestion(questionUrl: String!): Question
     getComment(commentId: String!): Comment
     getQuestions(pageSize: Int, lastDate: String!): PaginatedQuestions
     getMoreComments(parentId: String!, lastDate: String!): PaginatedComments
@@ -556,6 +562,7 @@ export const QandATypes = gql`
     author: User
     # authorId: String
     context: String
+    url: String
     img: String
     likes: [String]
     commenterIds: Map
@@ -572,7 +579,7 @@ export const QandATypes = gql`
   }
 
   type Mutation {
-    createQuestion(id: String!, question: String!, authorId: String!, context: String, img: String): Question!
+    createQuestion(id: String!, question: String!, authorId: String!, context: String, img: String, url: String): Question!
 
     addComment(
       id: String!
@@ -595,7 +602,7 @@ export const QandATypes = gql`
       operation: String!
     ): Boolean!
 
-    updateQuestion(questionId: String!, question: String): Boolean
+    updateQuestion(questionId: String!, question: String, url: String): Boolean
     updateComment(commentId: String!, comment: String): Boolean
   }
 `;

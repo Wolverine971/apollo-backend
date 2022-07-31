@@ -118,100 +118,102 @@ export const QandAResolvers: IResolvers = {
     },
     getSortedComments: async (
       _,
-      { questionId, enneagramTypes, dateRange, sortBy, skip }
+      { questionUrl, enneagramTypes, dateRange, sortBy, skip }
     ) => {
-      let date;
+      const question = await Question.findOne({ url: questionUrl });
+      if (question) {
+        let date;
+        switch (dateRange) {
+          case "Today":
+            date = new Date(
+              new Date().getFullYear(),
+              new Date().getMonth(),
+              new Date().getDate()
+            );
+            break;
+          case "Week":
+            const backOneWeek = new Date().getDate() - 7;
+            date = new Date(
+              new Date().getFullYear(),
+              new Date().getMonth(),
+              backOneWeek
+            );
 
-      switch (dateRange) {
-        case "Today":
-          date = new Date(
-            new Date().getFullYear(),
-            new Date().getMonth(),
-            new Date().getDate()
-          );
-          break;
-        case "Week":
-          const backOneWeek = new Date().getDate() - 7;
-          date = new Date(
-            new Date().getFullYear(),
-            new Date().getMonth(),
-            backOneWeek
-          );
-
-          break;
-        case "Month":
-          const backOneMonth = new Date().getMonth() - 1;
-          date = new Date(
-            new Date().getFullYear(),
-            backOneMonth,
-            new Date().getDate()
-          );
-          break;
-        case "3 Months":
-          const back3Months = new Date().getMonth() - 3;
-          date = new Date(
-            new Date().getFullYear(),
-            back3Months,
-            new Date().getDate()
-          );
-          break;
-        case "Year":
-          date = new Date(
-            new Date().getFullYear() - 1,
-            new Date().getMonth(),
-            new Date().getDate()
-          );
-          break;
-        default:
-          date = new Date("new Wed Sep 09 2020 17:05:34 GMT-0500");
-      }
-      const sort =
-        sortBy === "likes"
-          ? { likeIds: -1 }
-          : sortBy === "oldest"
-          ? { dateCreated: 1 }
-          : { dateCreated: -1 };
-      const newDate = date;
-      const params = questionId
-        ? {
-            parentId: questionId,
-            dateCreated: {
-              $gte: newDate,
-            }
-          }
-        : {
-            dateCreated: {
-              $gte: newDate,
-            }
-          };
-      // will always show total because there is additional filtering below
-      const count = await Comment.countDocuments(
-        questionId
+            break;
+          case "Month":
+            const backOneMonth = new Date().getMonth() - 1;
+            date = new Date(
+              new Date().getFullYear(),
+              backOneMonth,
+              new Date().getDate()
+            );
+            break;
+          case "3 Months":
+            const back3Months = new Date().getMonth() - 3;
+            date = new Date(
+              new Date().getFullYear(),
+              back3Months,
+              new Date().getDate()
+            );
+            break;
+          case "Year":
+            date = new Date(
+              new Date().getFullYear() - 1,
+              new Date().getMonth(),
+              new Date().getDate()
+            );
+            break;
+          default:
+            date = new Date("new Wed Sep 09 2020 17:05:34 GMT-0500");
+        }
+        const sort =
+          sortBy === "likes"
+            ? { likeIds: -1 }
+            : sortBy === "oldest"
+            ? { dateCreated: 1 }
+            : { dateCreated: -1 };
+        const newDate = date;
+        const params = question.id
           ? {
-              parentId: questionId,
+              parentId: question.id,
+              dateCreated: {
+                $gte: newDate,
+              },
             }
-          : {}
-      );
-      const comments = await Comment.find(params)
-        .limit(10)
-        .sort(sort)
-        .skip(skip)
-        .populate("author", "enneagramId")
-        .map((c) => {
-          const filteredComments = c.map(async (e: any) => {
-            if (e.author && enneagramTypes.includes(e.author.enneagramId)) {
-              return e;
-            } else {
-              return;
-            }
+          : {
+              dateCreated: {
+                $gte: newDate,
+              },
+            };
+        // will always show total because there is additional filtering below
+        const count = await Comment.countDocuments(
+          question.id
+            ? {
+                parentId: question.id,
+              }
+            : {}
+        );
+        const comments = await Comment.find(params)
+          .limit(10)
+          .sort(sort)
+          .skip(skip)
+          .populate("author", "enneagramId")
+          .map((c) => {
+            const filteredComments = c.map(async (e: any) => {
+              if (e.author && enneagramTypes.includes(e.author.enneagramId)) {
+                return e;
+              } else {
+                return;
+              }
+            });
+            return Promise.all(filteredComments);
           });
-          return Promise.all(filteredComments);
-        });
 
-      return {
-        comments: comments.filter((x) => x),
-        count,
-      };
+        return {
+          comments: comments.filter((x) => x),
+          count,
+        };
+      }
     },
   },
 
@@ -283,12 +285,15 @@ export const QandAResolvers: IResolvers = {
   },
 
   Mutation: {
-    createQuestion: async (_, { id, question, authorId, context, img, url }) => {
+    createQuestion: async (
+      _,
+      { id, question, authorId, context, img, url }
+    ) => {
       const q = new Question({
         id,
         question,
         authorId,
-        context, 
+        context,
         img,
         url,
         commenterIds: {},
@@ -388,7 +393,7 @@ export const QandAResolvers: IResolvers = {
             { id: parentId },
             { $push: { commentIds: [c.id] } }
           );
-        }else {
+        } else {
           await RelationshipData.updateOne(
             { id: parentId },
             { $push: { commentIds: [c.id] } }
@@ -452,15 +457,9 @@ export const QandAResolvers: IResolvers = {
         }
       } else if (type === "blog") {
         if (operation === "add") {
-          await Blog.updateOne(
-            { id: id },
-            { $push: { likeIds: [userId] } }
-          );
+          await Blog.updateOne({ id: id }, { $push: { likeIds: [userId] } });
         } else {
-          await Blog.updateOne(
-            { id: id },
-            { $pullAll: { likeIds: [userId] } }
-          );
+          await Blog.updateOne({ id: id }, { $pullAll: { likeIds: [userId] } });
         }
       } else {
         if (operation === "add") {
@@ -532,7 +531,7 @@ export const QandATypes = gql`
     getMoreComments(parentId: String!, lastDate: String!): PaginatedComments
 
     getSortedComments(
-      questionId: String
+      questionUrl: String
       enneagramTypes: [String]
       dateRange: String
       sortBy: String
@@ -579,7 +578,14 @@ export const QandATypes = gql`
   }
 
   type Mutation {
-    createQuestion(id: String!, question: String!, authorId: String!, context: String, img: String, url: String): Question!
+    createQuestion(
+      id: String!
+      question: String!
+      authorId: String!
+      context: String
+      img: String
+      url: String
+    ): Question!
 
     addComment(
       id: String!

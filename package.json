@@ -21,6 +21,7 @@
     "graphql": "^15.4.0",
     "graphql-upload": "^11.0.0",
     "http": "0.0.1-security",
+    "jsonwebtoken": "^8.5.1",
     "mongoose": "^5.10.11",
     "ncp": "^2.0.0",
     "redis": "^3.0.2",

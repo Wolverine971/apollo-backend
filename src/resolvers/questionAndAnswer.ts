@@ -6,7 +6,8 @@ import { redis } from "..";
 import { Blog } from "./blog";
 import { Content } from "./content";
 import { RelationshipData } from "./relationship";
-import { User } from "./users";
+import { Rando, User } from "./users";
+import "dotenv/config";
 
 const Schema = mongoose.Schema;
 
@@ -47,6 +48,7 @@ const commentSchema = new Schema({
   comment: String,
   authorId: String,
   likeIds: [String],
+  ip: String,
   commentIds: [String],
   dateCreated: Date,
   dateModified: Date,
@@ -120,60 +122,63 @@ export const QandAResolvers: IResolvers = {
       _,
       { questionUrl, enneagramTypes, dateRange, sortBy, skip }
     ) => {
+      const includeRandos = enneagramTypes
+        ? enneagramTypes.includes("Rando")
+        : false;
       const question = await Question.findOne({ url: questionUrl });
-      if (question) {
-        let date;
-        switch (dateRange) {
-          case "Today":
-            date = new Date(
-              new Date().getFullYear(),
-              new Date().getMonth(),
-              new Date().getDate()
-            );
-            break;
-          case "Week":
-            const backOneWeek = new Date().getDate() - 7;
-            date = new Date(
-              new Date().getFullYear(),
-              new Date().getMonth(),
-              backOneWeek
-            );
+      let date;
+      switch (dateRange) {
+        case "Today":
+          date = new Date(
+            new Date().getFullYear(),
+            new Date().getMonth(),
+            new Date().getDate()
+          );
+          break;
+        case "Week":
+          const backOneWeek = new Date().getDate() - 7;
+          date = new Date(
+            new Date().getFullYear(),
+            new Date().getMonth(),
+            backOneWeek
+          );
 
-            break;
-          case "Month":
-            const backOneMonth = new Date().getMonth() - 1;
-            date = new Date(
-              new Date().getFullYear(),
-              backOneMonth,
-              new Date().getDate()
-            );
-            break;
-          case "3 Months":
-            const back3Months = new Date().getMonth() - 3;
-            date = new Date(
-              new Date().getFullYear(),
-              back3Months,
-              new Date().getDate()
-            );
-            break;
-          case "Year":
-            date = new Date(
-              new Date().getFullYear() - 1,
-              new Date().getMonth(),
-              new Date().getDate()
-            );
-            break;
-          default:
-            date = new Date("new Wed Sep 09 2020 17:05:34 GMT-0500");
-        }
-        const sort =
-          sortBy === "likes"
-            ? { likeIds: -1 }
-            : sortBy === "oldest"
-            ? { dateCreated: 1 }
-            : { dateCreated: -1 };
-        const newDate = date;
-        const params = question.id
+          break;
+        case "Month":
+          const backOneMonth = new Date().getMonth() - 1;
+          date = new Date(
+            new Date().getFullYear(),
+            backOneMonth,
+            new Date().getDate()
+          );
+          break;
+        case "3 Months":
+          const back3Months = new Date().getMonth() - 3;
+          date = new Date(
+            new Date().getFullYear(),
+            back3Months,
+            new Date().getDate()
+          );
+          break;
+        case "Year":
+          date = new Date(
+            new Date().getFullYear() - 1,
+            new Date().getMonth(),
+            new Date().getDate()
+          );
+          break;
+        default:
+          date = new Date("new Wed Sep 09 2020 17:05:34 GMT-0500");
+      }
+      const sort =
+        sortBy === "likes"
+          ? { likeIds: -1 }
+          : sortBy === "oldest"
+          ? { dateCreated: 1 }
+          : { dateCreated: -1 };
+      const newDate = date;
+      const params =
+        question && question.id
           ? {
               parentId: question.id,
               dateCreated: {
@@ -185,35 +190,36 @@ export const QandAResolvers: IResolvers = {
                 $gte: newDate,
               },
             };
-        // will always show total because there is additional filtering below
-        const count = await Comment.countDocuments(
-          question.id
-            ? {
-                parentId: question.id,
-              }
-            : {}
-        );
-        const comments = await Comment.find(params)
-          .limit(10)
-          .sort(sort)
-          .skip(skip)
-          .populate("author", "enneagramId")
-          .map((c) => {
-            const filteredComments = c.map(async (e: any) => {
-              if (e.author && enneagramTypes.includes(e.author.enneagramId)) {
-                return e;
-              } else {
-                return;
-              }
-            });
-            return Promise.all(filteredComments);
+      // will always show total because there is additional filtering below
+      const count = await Comment.countDocuments(
+        question && question.id
+          ? {
+              parentId: question.id,
+            }
+          : {}
+      );
+      const comments = await Comment.find(params)
+        .limit(10)
+        .sort(sort)
+        .skip(skip)
+        .populate("author", "enneagramId")
+        .map((c) => {
+          const filteredComments = c.map(async (e: any) => {
+            if (e.author && enneagramTypes.includes(e.author.enneagramId)) {
+              return e;
+            } else if (!e.author && includeRandos) {
+              return e;
+            } else {
+              return;
+            }
           });
+          return Promise.all(filteredComments);
+        });
 
-        return {
-          comments: comments.filter((x) => x),
-          count,
-        };
-      }
+      return {
+        comments: comments.filter((x) => x),
+        count,
+      };
     },
   },
 
@@ -271,8 +277,8 @@ export const QandAResolvers: IResolvers = {
     },
     author: async (root, args) => {
       if (root.authorId) {
-        if (args) {
-          return await User.findOne({
+        if (root.authorId.includes(process.env.RANDO_PREFIX)) {
+          return await Rando.findOne({
             id: root.authorId,
           });
         } else {
@@ -281,6 +287,22 @@ export const QandAResolvers: IResolvers = {
       } else {
         return [];
       }
+    },
+  },
+
+  Author: {
+    __resolveType(obj, context, info) {
+      // Only Author has a name field
+      if (obj.confirmedUser) {
+        return "User";
+      } else {
+        return "Rando";
+      }
+      // Only Book has a title field
+      // if(obj.if){
+      //   return 'Rando';
+      // }
+      return null; // GraphQLError is thrown
     },
   },
 
@@ -308,7 +330,18 @@ export const QandAResolvers: IResolvers = {
       return q;
     },
 
-    addComment: async (_, { id, parentId, authorId, comment, type }) => {
+    addComment: async (
+      _,
+      { id, parentId, authorId, comment, type, ip },
+      context
+    ) => {
+      if (context?.user?.rando) {
+        const canComment = await randoCheck({ parentId, authorId, type, ip });
+        if (canComment !== true) {
+          return canComment;
+        }
+      }
+
       const c = new Comment({
         id,
         parentId,
@@ -316,6 +349,7 @@ export const QandAResolvers: IResolvers = {
         authorId,
         likeIds: [],
         commentIds: [],
+        ip,
         dateCreated: new Date(),
         dateModified: new Date(),
       });
@@ -398,6 +432,25 @@ export const QandAResolvers: IResolvers = {
             { id: parentId },
             { $push: { commentIds: [c.id] } }
           );
+        }
+        if (
+          authorId.includes(process.env.RANDO_PREFIX) &&
+          type === "question"
+        ) {
+          const rando: any = await Rando.findOne({ id: authorId });
+          if (rando) {
+            rando.questions.set(parentId, 1);
+            await rando.save();
+          } else {
+            const r = new Rando({
+              id: authorId,
+              questions: {},
+              dateCreated: new Date(),
+              dateModified: new Date(),
+            });
+            r.set(parentId, 1);
+            await r.save();
+          }
         }
         return c;
       } catch (e) {
@@ -493,10 +546,11 @@ export const QandAResolvers: IResolvers = {
         return false;
       }
     },
-    updateComment: async (_, { commentId, comment }) => {
+    updateComment: async (_, { commentId, comment, authorId }) => {
       const c = await Comment.findOneAndUpdate(
         {
           id: commentId,
+          authorId,
         },
         {
           comment,
@@ -539,11 +593,12 @@ export const QandATypes = gql`
     ): PaginatedComments
   }
 
+  union Author = User | Rando
   type Comment {
     id: String!
     parentId: String
     # authorId: String
-    author: User
+    author: Author
     comment: String
     likes: [String]
     comments: PaginatedComments
@@ -593,7 +648,8 @@ export const QandATypes = gql`
       authorId: String!
       comment: String!
       type: String!
-    ): Comment!
+      ip: String!
+    ): Comment
 
     addSubscription(
       userId: String!
@@ -609,6 +665,42 @@ export const QandATypes = gql`
     ): Boolean!
 
     updateQuestion(questionId: String!, question: String, url: String): Boolean
-    updateComment(commentId: String!, comment: String): Boolean
+    updateComment(
+      commentId: String!
+      comment: String
+      authorId: String!
+    ): Boolean
   }
 `;
+
+const randoCheck = async ({ parentId, authorId, type, ip }) => {
+  try {
+    if (type === "question") {
+      const q: any = await Question.findOne({ id: parentId });
+      if (q) {
+        const didCommented = q.commenterIds.get(authorId);
+        if (!didCommented) {
+          const alreadyCommented = await Comment.findOne({ parentId, ip });
+          if (!alreadyCommented) {
+            return true;
+          }
+        }
+        throw new MyError("Already Commented");
+      }
+      throw new MyError("Question Unavailable");
+    }
+    throw new MyError("Can only comment on questions");
+  } catch (e) {
+    console.log(e);
+    return e;
+  }
+};
+
+import { ApolloError } from "apollo-server-errors";
+export class MyError extends ApolloError {
+  constructor(message: string) {
+    super(message, "MY_ERROR_CODE");
+
+    Object.defineProperty(this, "name", { value: "MyError" });
+  }
+}

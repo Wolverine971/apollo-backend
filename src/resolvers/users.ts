@@ -35,6 +35,20 @@ export const Admin = mongoose.model(
   })
 );
 
+export const Rando = mongoose.model(
+  "Rando",
+  new Schema({
+    id: String!,
+    key: String,
+    questions: {
+      type: Map,
+      of: String,
+    },
+    dateCreated: Date,
+    dateModified: Date,
+  })
+);
+
 export const UserResolvers: IResolvers = {
   Date: String,
 
@@ -93,8 +107,33 @@ export const UserResolvers: IResolvers = {
         return false;
       }
     },
+    getRando: async (_, { id }) => {
+      const u = await Rando.findOne({ id });
+      return u;
+    },
+    
     getAdmins: async () => await Admin.find(),
   },
+
+  // Rando: {
+  //   comments: async (root, _) => {
+  //     if (root.commentIds && root.commentIds.length) {
+  //       // return {
+  //       //   comments: await Comment.find({ id: root.commentIds })
+  //       //     .limit(10)
+  //       //     .sort({ dateCreated: -1 }),
+  //       //   count: await Comment.countDocuments({ id: root.commentIds }),
+  //       // };
+  //       return root.commentIds
+  //     } else {
+  //       // return {
+  //       //   comments: [],
+  //       //   count: 0,
+  //       // };
+  //       return []
+  //     }
+  //   },
+  // },
 
   Mutation: {
     createUser: async (_, { email, password, enneagramType }) => {
@@ -307,6 +346,7 @@ export const UserTypes = gql`
     deleteUsers: Boolean
     deleteUsersByEmail(email: String!): Boolean
     changeField: Boolean
+    getRando(id: String!): Rando
 
     getAdmins: [Admin]
   }
@@ -336,6 +376,14 @@ export const UserTypes = gql`
   type Admin {
     id: String
     role: String
+    dateCreated: Date
+    dateModified: Date
+  }
+
+  type Rando {
+    id: String
+    key: String
+    questions: Map
     dateCreated: Date
     dateModified: Date
   }

@@ -337,7 +337,7 @@ export const QandAResolvers: IResolvers = {
     ) => {
       if (context?.user?.rando) {
         const canComment = await randoCheck({ parentId, authorId, type, ip });
-        if (canComment !== true) {
+        if (!canComment) {
           return canComment;
         }
       }
@@ -689,7 +689,22 @@ const randoCheck = async ({ parentId, authorId, type, ip }) => {
       }
       throw new MyError("Question Unavailable");
     }
-    throw new MyError("Can only comment on questions");
+    // not ready for this
+    // else if (type === "blog") {
+    //   const b: any = await Blog.findOne({ id: parentId });
+    //   if (b) {
+    //     const didCommented = b.commenterIds.get(authorId);
+    //     if (!didCommented) {
+    //       const alreadyCommented = await Comment.findOne({ parentId, ip });
+    //       if (!alreadyCommented) {
+    //         return true;
+    //       }
+    //     }
+    //     throw new MyError("Already Commented");
+    //   }
+    //   throw new MyError("Blog Unavailable");
+    // }
+    // throw new MyError("Can only comment on questions and blogs");
   } catch (e) {
     console.log(e);
     return e;

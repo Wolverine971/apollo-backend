@@ -109,7 +109,10 @@ export const UserResolvers: IResolvers = {
     },
     getRando: async (_, { id }) => {
       const u = await Rando.findOne({ id });
-      return u;
+      if(u){
+        return u
+      }
+      return {};
     },
     
     getAdmins: async () => await Admin.find(),

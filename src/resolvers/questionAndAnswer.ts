@@ -442,13 +442,13 @@ export const QandAResolvers: IResolvers = {
             rando.questions.set(parentId, 1);
             await rando.save();
           } else {
-            const r = new Rando({
+            const r: any = new Rando({
               id: authorId,
               questions: {},
               dateCreated: new Date(),
               dateModified: new Date(),
             });
-            r.set(parentId, 1);
+            r.questions.set(parentId, 1);
             await r.save();
           }
         }

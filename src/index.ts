@@ -12,10 +12,7 @@ import mongoose from "mongoose";
 
 import { BlogResolvers, BlogTypes } from "./resolvers/blog";
 import { ContentResolvers, ContentTypes } from "./resolvers/content";
-import {
-  QandAResolvers,
-  QandATypes,
-} from "./resolvers/questionAndAnswer";
+import { QandAResolvers, QandATypes } from "./resolvers/questionAndAnswer";
 import {
   RelationshipResolvers,
   RelationshipTypes,
@@ -55,13 +52,17 @@ import "dotenv/config";
     context: async ({ req }) => {
       try {
         const authToken = req.headers.authorization;
-        if (authToken && authToken.includes(process.env.RANDO_PREFIX as string)) {
+        console.log(authToken);
+        if (
+          authToken &&
+          authToken.includes(process.env.RANDO_PREFIX as string)
+        ) {
           return { user: { id: authToken, rando: true } };
-        } else if(authToken){
+        } else if (authToken) {
           const payload = verify(authToken, process.env.ACCESS_TOKEN);
           return { user: payload };
         }
-        return null
+        return null;
       } catch (e) {
         console.log(e);
         return null;
@@ -79,7 +80,7 @@ import "dotenv/config";
       //   }),
       // };
     },
-    
+
     validationRules: [depthLimit(7)],
   });
   app.use("*", cors());

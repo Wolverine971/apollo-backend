@@ -31,6 +31,7 @@ mongoose.set("debug", true);
 export const redis = require("redis");
 
 import "dotenv/config";
+import { EmailResolvers, EmailTypes } from "./resolvers/email";
 
 (async () => {
   const app = express();
@@ -41,6 +42,7 @@ import "dotenv/config";
       ContentTypes,
       RelationshipTypes,
       BlogTypes,
+      EmailTypes,
     ],
     resolvers: [
       QandAResolvers,
@@ -48,6 +50,7 @@ import "dotenv/config";
       ContentResolvers,
       RelationshipResolvers,
       BlogResolvers,
+      EmailResolvers,
     ],
     context: async ({ req }) => {
       try {

@@ -18,7 +18,7 @@ export const EmailResolvers: IResolvers = {
     getEmails: async (_, { lastDate }) => {
       const params = lastDate ? { dateCreated: { $lt: lastDate } } : {};
       const emails = await Email.find(params)
-        .limit(10)
+        .limit(100)
         .sort({ dateCreated: -1 })
         .exec();
       const count = await Email.countDocuments();
